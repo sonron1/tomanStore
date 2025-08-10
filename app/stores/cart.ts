@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { CartItem, Product } from '~/types/product'
+import {computed} from "vue";
 
 const STORAGE_KEY = 'tomanstore-cart-items'
 

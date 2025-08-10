@@ -154,14 +154,27 @@ const formatPrice = (price: number): string => {
   return price.toFixed(2)
 }
 
-const proceedToCheckout = () => {
-  const { notifyInfo } = useNotificationStore()
-  notifyInfo('Information', 'Fonctionnalité de paiement à venir !', 4000)
+const proceedToCheckout = async () => {
+  // Vérifier que le panier n'est pas vide
+  if (items.value.length === 0) {
+    const { notifyError } = useNotificationStore()
+    notifyError('Erreur', 'Votre panier est vide !', 3000)
+    return
+  }
+
+  try {
+    // Rediriger vers la page de checkout
+    await navigateTo('/checkout')
+  } catch (error) {
+    console.error('Erreur lors de la redirection:', error)
+    const { notifyError } = useNotificationStore()
+    notifyError('Erreur', 'Impossible d\'accéder à la page de paiement', 3000)
+  }
 }
 
 // Forcer la réactivité en surveillant les changements
 watchEffect(() => {
-  // Cette fonction se ré-exécute à chaque changement du panier
+  // Cette fonction execute à chaque changement du panier
   console.log('🔄 Panier mis à jour:', items.value.length, 'articles')
 })
 
