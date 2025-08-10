@@ -28,7 +28,7 @@ Une application e-commerce moderne développée avec Nuxt.js, Vue.js 3, Pinia et
 
 Assurez-vous d'avoir Node.js installé, puis installez les dépendances :
 
-```bash
+bash
 # npm
 npm install
 
