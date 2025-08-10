@@ -3,16 +3,38 @@
     <!-- Bouton principal -->
     <button
         @click="toggleDropdown"
-        class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         :title="getButtonTitle()"
     >
-      <!-- Icône selon le thème actuel -->
+      <!-- Icône directement intégrée selon le thème actuel -->
       <Transition name="theme-icon" mode="out-in">
-        <component
-            :is="getCurrentIcon()"
-            :key="currentTheme"
+        <!-- Icône Soleil (mode clair) -->
+        <svg
+            v-if="currentTheme === 'light'"
+            key="sun"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
             class="w-5 h-5 text-gray-600 dark:text-gray-300"
-        />
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+        </svg>
+
+        <!-- Icône Lune (mode sombre) -->
+        <svg
+            v-else
+            key="moon"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="w-5 h-5 text-gray-600 dark:text-gray-300"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+        </svg>
       </Transition>
     </button>
 
@@ -38,10 +60,29 @@
               'w-full px-4 py-2 text-left flex items-center space-x-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150',
               currentTheme === option.value
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                : 'text-gray-700 dark:text-gray-300'
+                : 'text-gray-700 dark:text-white'
             ]"
           >
-            <component :is="option.icon" class="w-4 h-4" />
+            <!-- Icône dans le dropdown -->
+            <svg
+                v-if="option.value === 'light'"
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+            </svg>
+            <svg
+                v-else
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+            </svg>
+
             <span class="text-sm font-medium">{{ option.label }}</span>
             <svg
                 v-if="currentTheme === option.value"
@@ -77,13 +118,11 @@ const showDropdown = ref(false)
 const themeOptions = [
   {
     value: 'light' as Theme,
-    label: 'Clair',
-    icon: 'IconSun'
+    label: 'Clair'
   },
   {
     value: 'dark' as Theme,
-    label: 'Sombre',
-    icon: 'IconMoon'
+    label: 'Sombre'
   }
 ]
 
@@ -102,24 +141,13 @@ const selectTheme = (theme: Theme) => {
   closeDropdown()
 }
 
-// Helpers
-const getCurrentIcon = () => {
-  switch (currentTheme.value) {
-    case 'dark':
-      return 'IconMoon'
-    case 'light':
-      return 'IconSun'
-    default:
-      return 'IconSun'  // ← Par défaut sun (thème clair)
-  }
-}
-
 const getButtonTitle = () => {
-  switch (currentTheme.value) {
+  // CORRECTION: Accéder directement à currentTheme sans .value
+  switch (currentTheme) {
     case 'dark':
-      return 'Mode sombre actif'
+      return 'Mode sombre actif - Cliquer pour changer'
     case 'light':
-      return 'Mode clair actif'
+      return 'Mode clair actif - Cliquer pour changer'
     default:
       return 'Changer le thème'
   }

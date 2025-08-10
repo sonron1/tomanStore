@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
 
-export type Theme = 'light' | 'dark'  // ← Suppression de 'system'
+export type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'tomanstore-theme'
 
 export const useThemeStore = defineStore('theme', () => {
-    const currentTheme = ref<Theme>('light')  // ← Thème clair par défaut
+    const currentTheme = ref<Theme>('light')
     const isDark = ref(false)
 
     // Fonction pour appliquer le thème
@@ -19,9 +19,17 @@ export const useThemeStore = defineStore('theme', () => {
         if (shouldBeDark) {
             document.documentElement.classList.add('dark')
             document.documentElement.classList.remove('light')
+
+            // FORCER les couleurs de body en mode sombre
+            document.body.style.backgroundColor = '#111827' // gray-900
+            document.body.style.color = '#f9fafb' // gray-50 (blanc)
         } else {
             document.documentElement.classList.add('light')
             document.documentElement.classList.remove('dark')
+
+            // Couleurs par défaut en mode clair
+            document.body.style.backgroundColor = '#f9fafb' // gray-50
+            document.body.style.color = '#111827' // gray-900
         }
 
         // Sauvegarder dans localStorage
@@ -48,15 +56,15 @@ export const useThemeStore = defineStore('theme', () => {
 
         try {
             const stored = localStorage.getItem(STORAGE_KEY) as Theme
-            if (stored && ['light', 'dark'].includes(stored)) {  // ← Suppression de 'system'
+            if (stored && ['light', 'dark'].includes(stored)) {
                 currentTheme.value = stored
             } else {
-                currentTheme.value = 'light'  // ← Toujours light par défaut
+                currentTheme.value = 'light'
             }
             applyTheme(currentTheme.value)
         } catch (error) {
             console.warn('Erreur chargement thème:', error)
-            currentTheme.value = 'light'  // ← Toujours light par défaut
+            currentTheme.value = 'light'
             applyTheme('light')
         }
     }
