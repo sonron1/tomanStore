@@ -28,7 +28,7 @@ Une application e-commerce moderne développée avec Nuxt.js, Vue.js 3, Pinia et
 
 Assurez-vous d'avoir Node.js installé, puis installez les dépendances :
 
-bash
+```bash
 # npm
 npm install
 
@@ -40,11 +40,12 @@ yarn install
 
 # bun
 bun install
+```
 
 ## 🏃‍♂️ Développement
 Démarrez le serveur de développement sur : `http://localhost:3000`
 
-
+```
 # npm
 npm run dev
 
@@ -56,10 +57,12 @@ yarn dev
 
 # bun
 bun run dev
+```
 
 ## 🏗️ Production
 Construire l'application pour la production :
 
+```
 # npm
 npm run build
 
@@ -71,11 +74,13 @@ yarn build
 
 # bun
 bun run build
+```
 
 
 Prévisualiser localement le build de production :
 
 
+```
 # npm
 npm run preview
 
@@ -87,6 +92,8 @@ yarn preview
 
 # bun
 bun run preview
+```
+
 
 ## 📦 Scripts disponibles
 - `dev` : Démarre le serveur de développement
