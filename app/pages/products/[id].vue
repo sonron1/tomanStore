@@ -131,9 +131,22 @@ const route = useRoute()
 const { getProductById } = useProductsStore()
 const { addToCart: addToCartStore } = useCartStore()
 
-// Récupérer le produit par son ID
+// Récupérer le produit par son ID - Correction du type
 const product = computed(() => {
-  const id = parseInt(route.params.id as string)
+  // Gestion sécurisée des paramètres de route
+  const idParam = route.params.id
+
+  // Vérifier que le paramètre existe et n'est pas un tableau
+  if (!idParam || Array.isArray(idParam)) {
+    return undefined
+  }
+
+  // Convertir en nombre et vérifier qu'il est valide
+  const id = parseInt(idParam, 10)
+  if (isNaN(id)) {
+    return undefined
+  }
+
   return getProductById(id)
 })
 
@@ -166,7 +179,6 @@ const formatPrice = (price: number): string => {
 const addToCart = () => {
   if (product.value && selectedColor.value && selectedSize.value) {
     addToCartStore(product.value, selectedSize.value, selectedColor.value, quantity.value)
-    // Vous pourrez ajouter une notification de succès ici
   }
 }
 

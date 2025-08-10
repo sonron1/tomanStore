@@ -222,10 +222,9 @@
   </div>
 </template>
 
+
 <script setup lang="ts">
-import {computed, ref} from "vue";
-import {useProductsStore} from "../../stores/products";
-import {useRoute, useSeoMeta} from "nuxt/app";
+import type { Product } from '~/types/product'
 
 const route = useRoute()
 const {
@@ -244,11 +243,40 @@ const selectedColors = ref<string[]>([])
 const selectedSizes = ref<string[]>([])
 const sortBy = ref('default')
 
-// Terme de recherche depuis l'URL
-const searchQuery = computed(() => route.query.search as string || '')
+// Terme de recherche depuis l'URL - Correction du type
+const searchQuery = computed(() => {
+  const search = route.query.search
+  // Gérer le cas où search peut être undefined ou un tableau
+  if (typeof search === 'string') {
+    return search
+  } else if (Array.isArray(search)) {
+    return search[0] || ''
+  }
+  return ''
+})
 
-// Données de base
-const allProducts = computed(() => products)
+// Données de base - Conversion explicite en Product[]
+const allProducts = computed((): Product[] => {
+  return products.map(product => ({
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    image: product.image,
+    category: product.category,
+    sizes: product.sizes.map(size => ({
+      size: size.size,
+      available: size.available
+    })),
+    colors: product.colors.map(color => ({
+      name: color.name,
+      hex: color.hex,
+      available: color.available
+    })),
+    inStock: product.inStock
+  }))
+})
+
 const categories = computed(() => getAllCategories())
 
 // Couleurs et tailles disponibles avec hex
@@ -256,7 +284,7 @@ const availableColors = computed(() => {
   const colorsSet = new Set()
   const colorsWithHex: Array<{name: string, hex: string}> = []
 
-  products.forEach(product => {
+  allProducts.value.forEach(product => {
     product.colors.forEach(color => {
       if (color.available && !colorsSet.has(color.name)) {
         colorsSet.add(color.name)
@@ -270,27 +298,43 @@ const availableColors = computed(() => {
 
 const availableSizes = computed(() => getAllSizes())
 
-// Produits filtrés
-const filteredProducts = computed(() => {
-  let filtered = searchQuery.value
-      ? searchProducts(searchQuery.value)
-      : products
+// Produits filtrés - CORRECTION ICI
+const filteredProducts = computed((): Product[] => {
+  let filtered: Product[] = allProducts.value
+
+  // Appliquer la recherche seulement si searchQuery n'est pas vide
+  if (searchQuery.value && searchQuery.value.trim()) {
+    const searchResults = searchProducts(searchQuery.value)
+    filtered = searchResults || [] // Fallback vers tableau vide si undefined
+  }
 
   // Filtre par catégorie
   if (selectedCategory.value) {
     filtered = filtered.filter(product => product.category === selectedCategory.value)
   }
 
-  // Filtre par prix
+// Filtre par prix - Correction complète des types
   if (priceRange.value !== 'all') {
-    const [min, max] = priceRange.value.split('-').map(Number)
-    filtered = filtered.filter(product => {
-      if (max) {
-        return product.price >= min && product.price <= max
-      } else {
-        return product.price >= min
+    const priceParts = priceRange.value.split('-')
+
+    // Vérification sécurisée des éléments du tableau
+    const minStr = priceParts[0]
+    const maxStr = priceParts[1]
+
+    if (minStr) { // S'assurer que minStr existe
+      const min = parseFloat(minStr)
+      const max = maxStr ? parseFloat(maxStr) : null
+
+      if (!isNaN(min)) { // Vérifier que min est un nombre valide
+        filtered = filtered.filter(product => {
+          if (max !== null && !isNaN(max)) {
+            return product.price >= min && product.price <= max
+          } else {
+            return product.price >= min
+          }
+        })
       }
-    })
+    }
   }
 
   // Filtre par couleurs
@@ -315,7 +359,7 @@ const filteredProducts = computed(() => {
 })
 
 // Produits triés
-const sortedProducts = computed(() => {
+const sortedProducts = computed((): Product[] => {
   const sorted = [...filteredProducts.value]
 
   switch (sortBy.value) {
