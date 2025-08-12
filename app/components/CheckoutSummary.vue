@@ -30,7 +30,8 @@
               Qté: {{ item.quantity }}
             </span>
             <span class="font-medium text-gray-900 dark:text-white text-sm">
-              {{ (item.product.price * item.quantity).toFixed(2) }}€
+              <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+              {{ formatPrice(item.product.price * item.quantity) }} FCFA
             </span>
           </div>
         </div>
@@ -57,7 +58,8 @@
           Sous-total ({{ itemCount }} article{{ itemCount > 1 ? 's' : '' }})
         </span>
         <span class="font-medium text-gray-900 dark:text-white">
-          {{ subtotal.toFixed(2) }}€
+          <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+          {{ formatPrice(subtotal) }} FCFA
         </span>
       </div>
 
@@ -67,24 +69,27 @@
           Livraison
         </span>
         <span class="font-medium text-gray-900 dark:text-white">
-          {{ shippingCost === 0 ? 'Gratuite' : `${shippingCost.toFixed(2)}€` }}
+          <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+          {{ shippingCost === 0 ? 'Gratuite' : `${formatPrice(shippingCost)} FCFA` }}
         </span>
       </div>
 
-      <!-- TVA (optionnel) -->
+      <!-- Remise sur TVA - adapter au contexte béninois -->
       <div class="flex justify-between text-sm">
         <span class="text-gray-600 dark:text-gray-400">
-          TVA (20%)
+          Remise fidélité
         </span>
         <span class="font-medium text-gray-900 dark:text-white">
-          {{ taxAmount.toFixed(2) }}€
+          <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+          {{ loyaltyDiscount > 0 ? `-${formatPrice(loyaltyDiscount)} FCFA` : '0 FCFA' }}
         </span>
       </div>
 
       <!-- Code promo (s'il y en a un) -->
       <div v-if="discount > 0" class="flex justify-between text-sm text-green-600 dark:text-green-400">
         <span>Remise appliquée</span>
-        <span>-{{ discount.toFixed(2) }}€</span>
+        <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+        <span>-{{ formatPrice(discount) }} FCFA</span>
       </div>
 
       <!-- Total final -->
@@ -94,7 +99,8 @@
             Total
           </span>
           <span class="text-xl font-bold text-blue-600 dark:text-blue-400">
-            {{ finalTotal.toFixed(2) }}€
+            <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+            {{ formatPrice(finalTotal) }} FCFA
           </span>
         </div>
       </div>
@@ -126,13 +132,13 @@
       </p>
     </div>
 
-    <!-- Informations de sécurité -->
+    <!-- Informations de sécurité adaptées au Bénin -->
     <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
       <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
         <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 1L5 6v10h10V6l-5-5zM8 14V9h4v5H8z" clip-rule="evenodd"/>
         </svg>
-        <span>Paiement 100% sécurisé</span>
+        <span>Paiement sécurisé avec KKiaPay</span>
       </div>
 
       <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -146,7 +152,7 @@
         <svg class="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
           <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
         </svg>
-        <span>Retours gratuits sous 30 jours</span>
+        <span>Retours gratuits sous 15 jours</span>
       </div>
     </div>
   </div>
@@ -154,6 +160,12 @@
 
 <script setup lang="ts">
 import type { PromoCodeMap } from '~/types/checkout'
+import { useCartStore } from '~/stores/cart'
+import { useCheckoutStore } from '~/stores/checkout'
+import { useNotificationStore } from '~/stores/notifications'
+
+// ✅ AJOUT: Utiliser le composable useCurrency
+const { formatPrice } = useCurrency()
 
 // UTILISER VOTRE STORE EXISTANT
 const { items: cartItems, total: subtotal, itemCount } = useCartStore()
@@ -166,27 +178,28 @@ const discount = ref(0)
 const applyingPromo = ref(false)
 const promoMessage = ref('')
 
-// Calcul de la TVA (20%)
-const taxAmount = computed(() => {
-  return (subtotal * 0.2)
+// ✅ ADAPTATION: Remise fidélité au lieu de TVA (plus adapté au contexte béninois)
+const loyaltyDiscount = computed(() => {
+  // Remise de 5% pour les commandes > 50 000 FCFA
+  return subtotal > 50000 ? subtotal * 0.05 : 0
 })
 
-// Total final avec livraison, TVA et remise
+// Total final avec livraison et remise
 const finalTotal = computed(() => {
-  return subtotal + shippingCost + taxAmount.value - discount.value
+  return subtotal + shippingCost - loyaltyDiscount.value - discount.value
 })
 
-// Codes promo disponibles (simulation)
+// ✅ ADAPTATION: Codes promo adaptés au contexte béninois (en FCFA)
 const validPromoCodes: PromoCodeMap = {
-  'WELCOME10': {
-    discount: 10,
-    description: '10€ de remise de bienvenue'
+  'BENIN10': {
+    discount: 5000, // 5000 FCFA de remise
+    description: '5 000 FCFA de remise de bienvenue'
   },
-  'SAVE20': {
-    discount: 20,
-    description: '20€ de remise'
+  'TOMAN20': {
+    discount: 10000, // 10000 FCFA de remise
+    description: '10 000 FCFA de remise'
   },
-  'FREESHIP': {
+  'LIVRAISONBJ': {
     discount: 0,
     freeShipping: true,
     description: 'Livraison gratuite'
@@ -214,7 +227,7 @@ const applyPromoCode = async () => {
       } else {
         discount.value = promoInfo.discount
         promoMessage.value = `Code appliqué : ${promoInfo.description}`
-        notifySuccess('Code promo appliqué !', `${promoInfo.discount}€ de remise`)
+        notifySuccess('Code promo appliqué !', `${formatPrice(promoInfo.discount)} FCFA de remise`)
       }
 
       // Réinitialiser le champ

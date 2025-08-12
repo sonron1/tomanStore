@@ -2,14 +2,52 @@ import { defineStore } from 'pinia'
 import type { Product } from '~/types/product'
 
 export const useProductsStore = defineStore('products', () => {
-    const products = ref<Product[]>([
+    // ✅ Seulement les 5 produits avec les images disponibles
+    const products: Product[] = [
         {
             id: 1,
-            name: 'T-shirt Classique Noir',
-            description: 'T-shirt en coton bio de qualité supérieure, coupe classique et confortable.',
-            price: 24.99,
-            image: '/images/products/tshirt-noir.jpg',
+            name: 'T-shirt Classique Bleu',
+            description: 'T-shirt en coton 100% de haute qualité couleur bleu, parfait pour toutes les occasions.',
+            price: 12000, // FCFA
+            image: '/images/products/tshirt-bleu.jpg',
             category: 'Classique',
+            inStock: true,
+            sizes: [
+                { size: 'S', available: true },
+                { size: 'M', available: true },
+                { size: 'L', available: true },
+                { size: 'XL', available: true }
+            ],
+            colors: [
+                { name: 'Bleu', hex: '#1e3a8a', available: true }
+            ]
+        },
+        {
+            id: 2,
+            name: 'T-shirt Moderne Gris',
+            description: 'Design moderne en coton gris, idéal pour un style décontracté et élégant.',
+            price: 15000, // FCFA
+            image: '/images/products/tshirt-gris.jpg',
+            category: 'Moderne',
+            inStock: true,
+            sizes: [
+                { size: 'S', available: true },
+                { size: 'M', available: true },
+                { size: 'L', available: true },
+                { size: 'XL', available: true }
+            ],
+            colors: [
+                { name: 'Gris', hex: '#6b7280', available: true }
+            ]
+        },
+        {
+            id: 3,
+            name: 'T-shirt Premium Noir',
+            description: 'T-shirt noir premium en coton de qualité supérieure, intemporel et versatile.',
+            price: 18000, // FCFA
+            image: '/images/products/tshirt-noir.jpg',
+            category: 'Premium',
+            inStock: true,
             sizes: [
                 { size: 'S', available: true },
                 { size: 'M', available: true },
@@ -17,54 +55,17 @@ export const useProductsStore = defineStore('products', () => {
                 { size: 'XL', available: false }
             ],
             colors: [
-                { name: 'Noir', hex: '#000000', available: true },
-                { name: 'Blanc', hex: '#FFFFFF', available: true }
-            ],
-            inStock: true
-        },
-        {
-            id: 2,
-            name: 'T-shirt Vintage Gris',
-            description: 'T-shirt avec un look vintage, parfait pour un style décontracté.',
-            price: 29.99,
-            image: '/images/products/tshirt-gris.jpg',
-            category: 'Vintage',
-            sizes: [
-                { size: 'S', available: true },
-                { size: 'M', available: true },
-                { size: 'L', available: true },
-                { size: 'XL', available: true }
-            ],
-            colors: [
-                { name: 'Gris', hex: '#808080', available: true }
-            ],
-            inStock: true
-        },
-        {
-            id: 3,
-            name: 'T-shirt Moderne Bleu',
-            description: 'Coupe moderne et ajustée, idéal pour un look contemporain.',
-            price: 27.99,
-            image: '/images/products/tshirt-bleu.jpg',
-            category: 'Moderne',
-            sizes: [
-                { size: 'S', available: false },
-                { size: 'M', available: true },
-                { size: 'L', available: true },
-                { size: 'XL', available: true }
-            ],
-            colors: [
-                { name: 'Bleu', hex: '#0000FF', available: true }
-            ],
-            inStock: true
+                { name: 'Noir', hex: '#000000', available: true }
+            ]
         },
         {
             id: 4,
-            name: 'T-shirt Sport Rouge',
-            description: 'T-shirt technique pour le sport, tissu respirant et séchage rapide.',
-            price: 32.99,
+            name: 'T-shirt Dynamique Rouge',
+            description: 'T-shirt rouge éclatant en coton respirant, parfait pour affirmer votre style.',
+            price: 16000, // FCFA
             image: '/images/products/tshirt-rouge.jpg',
-            category: 'Sport',
+            category: 'Dynamique',
+            inStock: true,
             sizes: [
                 { size: 'S', available: true },
                 { size: 'M', available: true },
@@ -72,87 +73,79 @@ export const useProductsStore = defineStore('products', () => {
                 { size: 'XL', available: true }
             ],
             colors: [
-                { name: 'Rouge', hex: '#FF0000', available: true }
-            ],
-            inStock: true
+                { name: 'Rouge', hex: '#dc2626', available: true }
+            ]
         },
         {
             id: 5,
-            name: 'T-shirt Casual Vert',
-            description: 'T-shirt décontracté avec coupe ample, parfait pour le weekend.',
-            price: 26.99,
+            name: 'T-shirt Nature Vert',
+            description: 'T-shirt vert nature en coton bio, inspiré des couleurs du Bénin et respectueux de l\'environnement.',
+            price: 14000, // FCFA
             image: '/images/products/tshirt-vert.jpg',
-            category: 'Casual',
+            category: 'Nature',
+            inStock: true,
             sizes: [
                 { size: 'S', available: true },
-                { size: 'M', available: false },
-                { size: 'L', available: true },
+                { size: 'M', available: true },
+                { size: 'L', available: false },
                 { size: 'XL', available: true }
             ],
             colors: [
-                { name: 'Vert', hex: '#008000', available: true }
-            ],
-            inStock: true
+                { name: 'Vert', hex: '#16a34a', available: true }
+            ]
         }
-    ])
+    ]
+
+    // ✅ Fonction pour récupérer un produit par ID
+    const getProductById = (id: number): Product | undefined => {
+        return products.find(product => product.id === id)
+    }
 
     // Fonctions de recherche et filtrage
     const searchProducts = (query: string): Product[] => {
-        if (!query.trim()) return products.value
+        if (!query.trim()) return products
 
-        const searchTerm = query.toLowerCase().trim()
-        return products.value.filter(product =>
-            product.name.toLowerCase().includes(searchTerm) ||
-            product.description.toLowerCase().includes(searchTerm) ||
-            product.category.toLowerCase().includes(searchTerm) ||
-            product.colors.some(color => color.name.toLowerCase().includes(searchTerm))
+        const lowercaseQuery = query.toLowerCase()
+        return products.filter(product =>
+            product.name.toLowerCase().includes(lowercaseQuery) ||
+            product.description.toLowerCase().includes(lowercaseQuery) ||
+            product.category.toLowerCase().includes(lowercaseQuery)
         )
-    }
-
-    const getProductById = (id: number): Product | undefined => {
-        return products.value.find(product => product.id === id)
     }
 
     const getProductsByCategory = (category: string): Product[] => {
-        return products.value.filter(product => product.category === category)
-    }
-
-    const getAvailableProducts = (): Product[] => {
-        return products.value.filter(product => product.inStock)
-    }
-
-    const getProductsByPriceRange = (minPrice: number, maxPrice: number): Product[] => {
-        return products.value.filter(product =>
-            product.price >= minPrice && product.price <= maxPrice
-        )
+        return products.filter(product => product.category === category)
     }
 
     const getAllCategories = (): string[] => {
-        const categories = products.value.map(product => product.category)
-        return [...new Set(categories)]
+        return [...new Set(products.map(product => product.category))]
     }
 
     const getAllColors = (): string[] => {
-        const colors = products.value.flatMap(product =>
-            product.colors.filter(c => c.available).map(c => c.name)
-        )
-        return [...new Set(colors)]
+        const colors = new Set<string>()
+        products.forEach(product => {
+            product.colors.forEach(color => {
+                if (color.available) colors.add(color.name)
+            })
+        })
+        return Array.from(colors)
     }
 
     const getAllSizes = (): string[] => {
-        const sizes = products.value.flatMap(product =>
-            product.sizes.filter(s => s.available).map(s => s.size)
-        )
-        return [...new Set(sizes)]
+        const sizes = new Set<string>()
+        products.forEach(product => {
+            product.sizes.forEach(size => {
+                if (size.available) sizes.add(size.size)
+            })
+        })
+        return Array.from(sizes).sort()
     }
 
     return {
-        products: readonly(products),
-        searchProducts,
+        products,
         getProductById,
+        searchProducts,
         getProductsByCategory,
-        getAvailableProducts,
-        getProductsByPriceRange,
         getAllCategories,
         getAllColors,
         getAllSizes

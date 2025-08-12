@@ -46,7 +46,7 @@
                 <p class="text-sm text-gray-600 mb-2">
                   Taille: {{ item.size }} | Couleur: {{ item.color }}
                 </p>
-                <p class="text-lg font-semibold text-primary-600">{{ formatPrice(item.product.price) }}€</p>
+                <p class="text-lg font-semibold text-primary-600">{{ formatPrice(item.product.price) }} FCFA</p>
               </div>
 
               <!-- Contrôles de quantité -->
@@ -146,6 +146,9 @@
 
 <script setup lang="ts">
 // Utiliser storeToRefs pour maintenir la réactivité
+import {useCartStore} from "~/stores/cart";
+import {useNotificationStore} from "~/stores/notifications";
+
 const cartStore = useCartStore()
 const { items, total, itemCount, getTotalWithShipping, isFreeShipping } = storeToRefs(cartStore)
 const { updateQuantity, removeFromCart } = cartStore

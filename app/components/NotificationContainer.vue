@@ -127,6 +127,8 @@
 </template>
 
 <script setup lang="ts">
+import {useNotificationStore} from "~/stores/notifications";
+
 const { notifications, removeNotification } = useNotificationStore()
 </script>
 

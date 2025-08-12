@@ -57,8 +57,15 @@ export const useNotificationStore = defineStore('notifications', () => {
         return addNotification({ type: 'success', title, message, duration })
     }
 
-    const notifyError = (title: string, message: string, persistent?: number) => {
-        return addNotification({ type: 'error', title, message, persistent, duration: persistent ? 0 : 8000 })
+    // ✅ CORRECTION: Paramètre duration au lieu de persistent
+    const notifyError = (title: string, message: string, duration?: number) => {
+        return addNotification({
+            type: 'error',
+            title,
+            message,
+            duration: duration || 8000, // 8 secondes par défaut pour les erreurs
+            persistent: false
+        })
     }
 
     const notifyWarning = (title: string, message: string, duration?: number) => {

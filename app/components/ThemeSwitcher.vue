@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Theme } from '~/stores/theme'
+import {type Theme, useThemeStore} from '~/stores/theme'
 
 const { currentTheme, setTheme } = useThemeStore()
 

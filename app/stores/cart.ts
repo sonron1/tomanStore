@@ -1,211 +1,270 @@
+
 import { defineStore } from 'pinia'
-import type { CartItem, Product } from '~/types/product'
-import {computed} from "vue";
+import type { Product } from '~/types/product'
+import {useNotificationStore} from "~/stores/notifications";
 
-const STORAGE_KEY = 'tomanstore-cart-items'
+export interface CartItem {
+    product: Product
+    quantity: number
+    size: string
+    color: string
+}
 
-export const useCartStore = defineStore('cart', () => {
-    // État réactif - utiliser shallowRef pour de meilleures performances avec des objets complexes
-    const items = ref<CartItem[]>([])
+interface CartState {
+    items: CartItem[]
+}
 
-    // Forcer la réactivité avec un trigger
-    const cartVersion = ref(0)
+export const useCartStore = defineStore('cart', {
+    state: (): CartState => ({
+        items: []
+    }),
 
-    // Fonction pour charger depuis localStorage
-    const loadFromStorage = () => {
-        if (process.client) {
-            try {
-                const stored = localStorage.getItem(STORAGE_KEY)
-                if (stored) {
-                    const parsedItems = JSON.parse(stored)
-                    items.value = Array.isArray(parsedItems) ? parsedItems : []
-                    cartVersion.value++
-                    console.log('✅ Panier chargé:', items.value.length, 'articles')
-                }
-            } catch (error) {
-                console.warn('❌ Erreur chargement panier:', error)
-                items.value = []
-            }
-        }
-    }
+    // ✅ PAS de plugin externe, persistance manuelle
 
-    // Fonction pour sauvegarder dans localStorage
-    const saveToStorage = () => {
-        if (process.client) {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value))
-                cartVersion.value++ // Forcer la réactivité
-                console.log('💾 Panier sauvegardé:', items.value.length, 'articles')
-            } catch (error) {
-                console.warn('❌ Erreur sauvegarde panier:', error)
-            }
-        }
-    }
+    getters: {
+        itemCount(): number {
+            return this.items.reduce((total, item) => total + item.quantity, 0)
+        },
 
-    // Charger les données au démarrage
-    if (process.client) {
-        loadFromStorage()
-    }
+        total(): number {
+            return this.items.reduce((total, item) => total + (item.product.price * item.quantity), 0)
+        },
 
-    // Computed properties avec dépendance au cartVersion pour forcer les recalculs
-    const total = computed(() => {
-        cartVersion.value // Dépendance explicite pour forcer la réactivité
-        return items.value.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
-    })
+        isFreeShipping(): boolean {
+            return this.total >= 25000
+        },
 
-    const itemCount = computed(() => {
-        cartVersion.value // Dépendance explicite
-        return items.value.reduce((count, item) => count + item.quantity, 0)
-    })
+        getTotalWithShipping(): number {
+            const shippingCost = this.isFreeShipping ? 0 : 2500
+            return this.total + shippingCost
+        },
 
-    const getTotalWithShipping = computed(() => {
-        const subtotal = total.value
-        const shipping = subtotal >= 50 ? 0 : 4.99
-        return subtotal + shipping
-    })
-
-    const isFreeShipping = computed(() => {
-        return total.value >= 50
-    })
-
-    // Actions avec triggers de réactivité
-    const addToCart = (product: Product, size: string, color: string, quantity: number = 1) => {
-        const { notifySuccess } = useNotificationStore()
-
-        const existingItem = items.value.find(
-            item => item.product.id === product.id && item.size === size && item.color === color
-        )
-
-        if (existingItem) {
-            existingItem.quantity += quantity
-            notifySuccess(
-                'Panier mis à jour',
-                `Quantité de "${product.name}" mise à jour (${existingItem.quantity})`,
-                3000
-            )
-        } else {
-            items.value.push({
-                product,
-                size,
-                color,
-                quantity
-            })
-            notifySuccess(
-                'Article ajouté',
-                `"${product.name}" a été ajouté à votre panier`,
-                3000
-            )
-        }
-
-        // Sauvegarder et déclencher la réactivité
-        saveToStorage()
-
-        // Forcer la mise à jour de l'interface
-        nextTick(() => {
-            cartVersion.value++
-        })
-    }
-
-    const removeFromCart = (productId: number, size: string, color: string) => {
-        const { notifyInfo } = useNotificationStore()
-
-        const index = items.value.findIndex(
-            item => item.product.id === productId && item.size === size && item.color === color
-        )
-
-        if (index > -1) {
-            const itemToRemove = items.value[index]
-            if (itemToRemove) {
-                const productName = itemToRemove.product.name
-
-                // Utiliser splice pour maintenir la réactivité
-                items.value.splice(index, 1)
-
-                notifyInfo(
-                    'Article supprimé',
-                    `"${productName}" a été retiré de votre panier`,
-                    3000
+        isInCart() {
+            return (productId: number, size: string, color: string): boolean => {
+                return this.items.some(item =>
+                    item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
                 )
+            }
+        },
 
-                // Sauvegarder et déclencher la réactivité
-                saveToStorage()
+        getItemQuantity() {
+            return (productId: number, size: string, color: string): number => {
+                const item = this.items.find(item =>
+                    item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
+                )
+                return item ? item.quantity : 0
+            }
+        }
+    },
 
-                // Forcer la mise à jour
-                nextTick(() => {
-                    cartVersion.value++
+    actions: {
+        // ✅ PERSISTANCE MANUELLE
+        _saveToStorage(): void {
+            if (process.client) {
+                try {
+                    localStorage.setItem('tomanstore-cart', JSON.stringify(this.items))
+                } catch (error) {
+                    console.error('❌ Erreur sauvegarde panier:', error)
+                }
+            }
+        },
+
+        // ✅ CHARGEMENT DEPUIS LE STORAGE
+        loadFromStorage(): void {
+            if (process.client) {
+                try {
+                    const stored = localStorage.getItem('tomanstore-cart')
+                    if (stored) {
+                        const parsedItems = JSON.parse(stored)
+                        if (Array.isArray(parsedItems)) {
+                            this.items = parsedItems
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Erreur chargement panier:', error)
+                    this.items = []
+                }
+            }
+        },
+
+        // ✅ FONCTION ADDTOCART AVEC SAUVEGARDE
+        addToCart(product: Product, size: string, color: string, quantity: number = 1): boolean {
+            const notificationStore = useNotificationStore()
+            const { formatPrice } = useCurrency()
+
+            // Validation du produit
+            if (!product.inStock) {
+                notificationStore.notifyError('Produit indisponible', 'Ce produit n\'est plus en stock', 3000)
+                return false
+            }
+
+            // Vérifier que la taille est disponible
+            const selectedSize = product.sizes.find(s => s.size === size && s.available)
+            if (!selectedSize) {
+                notificationStore.notifyError('Taille indisponible', `La taille ${size} n'est pas disponible`, 3000)
+                return false
+            }
+
+            // Vérifier que la couleur est disponible
+            const selectedColor = product.colors.find(c => c.name === color && c.available)
+            if (!selectedColor) {
+                notificationStore.notifyError('Couleur indisponible', `La couleur ${color} n'est pas disponible`, 3000)
+                return false
+            }
+
+            // Valider la quantité
+            if (quantity <= 0 || quantity > 10) {
+                notificationStore.notifyError('Quantité invalide', 'La quantité doit être entre 1 et 10', 3000)
+                return false
+            }
+
+            // Chercher si l'article existe déjà
+            const existingItemIndex = this.items.findIndex(
+                item => item.product.id === product.id &&
+                    item.size === size &&
+                    item.color === color
+            )
+
+            if (existingItemIndex > -1) {
+                const existingItem = this.items[existingItemIndex]
+                if (existingItem) {
+                    const newQuantity = existingItem.quantity + quantity
+                    if (newQuantity > 10) {
+                        notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit', 3000)
+                        return false
+                    }
+                    existingItem.quantity = newQuantity
+                }
+            } else {
+                this.items.push({
+                    product: { ...product },
+                    quantity,
+                    size,
+                    color
                 })
             }
-        }
-    }
 
-    const updateQuantity = (productId: number, size: string, color: string, quantity: number) => {
-        const item = items.value.find(
-            item => item.product.id === productId && item.size === size && item.color === color
-        )
+            // ✅ SAUVEGARDER APRÈS MODIFICATION
+            this._saveToStorage()
 
-        if (item) {
-            if (quantity <= 0) {
-                removeFromCart(productId, size, color)
+            notificationStore.notifySuccess(
+                'Produit ajouté !',
+                `${product.name} (${size}, ${color}) - ${formatPrice(product.price)} FCFA`,
+                3000
+            )
+
+            return true
+        },
+
+        // ✅ FONCTION UPDATEQUANTITY AVEC SAUVEGARDE
+        updateQuantity(productId: number, size: string, color: string, newQuantity: number): boolean {
+            const notificationStore = useNotificationStore()
+
+            const itemIndex = this.items.findIndex(
+                item => item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
+            )
+
+            if (itemIndex === -1) {
+                return false
+            }
+
+            if (newQuantity <= 0) {
+                return this.removeFromCart(productId, size, color)
+            } else if (newQuantity > 10) {
+                notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit', 3000)
+                return false
             } else {
-                const oldQuantity = item.quantity
-                item.quantity = quantity
+                const item = this.items[itemIndex]
+                if (item) {
+                    item.quantity = newQuantity
 
-                if (process.client) {
-                    const { notifySuccess } = useNotificationStore()
-                    notifySuccess(
+                    // ✅ SAUVEGARDER APRÈS MODIFICATION
+                    this._saveToStorage()
+
+                    notificationStore.notifySuccess(
                         'Quantité mise à jour',
-                        `Quantité changée de ${oldQuantity} à ${quantity}`,
+                        `Nouvelle quantité : ${newQuantity}`,
                         2000
                     )
+                    return true
                 }
-
-                // Sauvegarder et déclencher la réactivité
-                saveToStorage()
-
-                // Forcer la mise à jour
-                nextTick(() => {
-                    cartVersion.value++
-                })
+                return false
             }
-        }
-    }
+        },
 
-    const clearCart = () => {
-        const { notifyInfo } = useNotificationStore()
-        const previousItemCount = items.value.length
+        // ✅ FONCTION REMOVEFROMCART AVEC SAUVEGARDE
+        removeFromCart(productId: number, size: string, color: string): boolean {
+            const notificationStore = useNotificationStore()
 
-        items.value.length = 0 // Vider le tableau en gardant la réactivité
-        saveToStorage()
-
-        if (previousItemCount > 0) {
-            notifyInfo(
-                'Panier vidé',
-                'Tous les articles ont été supprimés de votre panier',
-                3000
+            const itemIndex = this.items.findIndex(
+                item => item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
             )
+
+            if (itemIndex === -1) {
+                return false
+            }
+
+            const removedItem = this.items.splice(itemIndex, 1)[0]
+
+            // ✅ SAUVEGARDER APRÈS MODIFICATION
+            this._saveToStorage()
+
+            if (removedItem) {
+                notificationStore.notifySuccess(
+                    'Produit supprimé',
+                    `${removedItem.product.name} retiré du panier`,
+                    3000
+                )
+            }
+
+            return true
+        },
+
+        // ✅ CLEARCART AVEC SAUVEGARDE
+        clearCart(): void {
+            const notificationStore = useNotificationStore()
+            const itemsCount = this.itemCount
+            this.items = []
+
+            // ✅ SAUVEGARDER APRÈS MODIFICATION
+            this._saveToStorage()
+
+            if (itemsCount > 0) {
+                notificationStore.notifySuccess(
+                    'Panier vidé',
+                    'Tous les articles ont été supprimés',
+                    3000
+                )
+            }
+        },
+
+        getShippingSavings(): number {
+            return this.isFreeShipping ? 2500 : 0
+        },
+
+        getAmountForFreeShipping(): number {
+            return Math.max(0, 25000 - this.total)
+        },
+
+        getUniqueItemsCount(): number {
+            return this.items.length
+        },
+
+        getItemsByCategory(category: string): CartItem[] {
+            return this.items.filter(item => item.product.category === category)
+        },
+
+        getAveragePrice(): number {
+            if (this.items.length === 0) return 0
+            return this.total / this.itemCount
         }
-
-        // Forcer la mise à jour
-        nextTick(() => {
-            cartVersion.value++
-        })
-    }
-
-    const reloadFromStorage = () => {
-        loadFromStorage()
-    }
-
-    return {
-        items: readonly(items),
-        total,
-        itemCount,
-        getTotalWithShipping,
-        isFreeShipping,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        reloadFromStorage,
-        cartVersion: readonly(cartVersion) // Exposer pour debug si nécessaire
     }
 })

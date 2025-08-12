@@ -176,6 +176,8 @@
 </template>
 
 <script setup lang="ts">
+import {useNotificationStore} from "~/stores/notifications";
+
 const { notifySuccess, notifyError } = useNotificationStore()
 
 // État du formulaire
