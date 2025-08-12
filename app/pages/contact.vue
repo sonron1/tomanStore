@@ -1,3 +1,4 @@
+
 <template>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- En-tête -->
@@ -176,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import {useNotificationStore} from "~/stores/notifications";
+import { useNotificationStore } from "~/stores/notifications"
 
 const { notifySuccess, notifyError } = useNotificationStore()
 
@@ -188,16 +189,20 @@ const form = ref({
   message: ''
 })
 
+// ✅ CORRECTION: Ajouter la variable réactive manquante
 const isSubmitting = ref(false)
 
 const submitForm = async () => {
+  // ✅ Empêcher les soumissions multiples
+  if (isSubmitting.value) return
+
   isSubmitting.value = true
 
   try {
-    // Simulation d'envoi (vous pourrez connecter une vraie API plus tard)
+    // Simulation d'envoi
     await new Promise(resolve => setTimeout(resolve, 1500))
 
-    // Réinitialiser le formulaire
+    // Reset du formulaire
     form.value = {
       name: '',
       email: '',
@@ -205,24 +210,23 @@ const submitForm = async () => {
       message: ''
     }
 
+    // ✅ CORRECTION: Supprimer le paramètre duration
     notifySuccess(
         'Message envoyé',
-        'Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.',
-        5000
+        'Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.'
     )
   } catch (error) {
-    notifyError(
-        'Erreur d\'envoi',
-        'Une erreur est survenue lors de l\'envoi. Veuillez réessayer plus tard.'
-    )
+    console.error('Erreur lors de l\'envoi:', error)
+    notifyError('Erreur', 'Une erreur est survenue lors de l\'envoi')
   } finally {
+    // ✅ Remettre le bouton disponible
     isSubmitting.value = false
   }
 }
 
 // Meta tags
 useSeoMeta({
-  title: 'Contact',
-  description: 'Contactez l\'équipe TomanStore pour toutes vos questions sur nos t-shirts et notre service.'
+  title: 'Contact - TomanStore',
+  description: 'Contactez-nous pour toute question ou assistance. Notre équipe est là pour vous aider.'
 })
 </script>

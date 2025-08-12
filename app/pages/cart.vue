@@ -145,7 +145,6 @@
 </template>
 
 <script setup lang="ts">
-// Utiliser storeToRefs pour maintenir la réactivité
 import {useCartStore} from "~/stores/cart";
 import {useNotificationStore} from "~/stores/notifications";
 
@@ -158,30 +157,25 @@ const formatPrice = (price: number): string => {
 }
 
 const proceedToCheckout = async () => {
-  // Vérifier que le panier n'est pas vide
   if (items.value.length === 0) {
     const { notifyError } = useNotificationStore()
-    notifyError('Erreur', 'Votre panier est vide !', 3000)
+    notifyError('Erreur', 'Votre panier est vide !')
     return
   }
 
   try {
-    // Rediriger vers la page de checkout
     await navigateTo('/checkout')
   } catch (error) {
     console.error('Erreur lors de la redirection:', error)
     const { notifyError } = useNotificationStore()
-    notifyError('Erreur', 'Impossible d\'accéder à la page de paiement', 3000)
+    notifyError('Erreur', 'Impossible d\'accéder à la page de paiement')
   }
 }
 
-// Forcer la réactivité en surveillant les changements
 watchEffect(() => {
-  // Cette fonction execute à chaque changement du panier
   console.log('🔄 Panier mis à jour:', items.value.length, 'articles')
 })
 
-// Meta tags
 useSeoMeta({
   title: 'Mon panier',
   description: 'Consultez et modifiez les articles de votre panier.'
