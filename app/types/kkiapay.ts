@@ -1,40 +1,47 @@
+
+// ✅ TYPES CONFORMES À LA DOCUMENTATION KKIAPAY OFFICIELLE
+
 export interface KKiaPayConfig {
-    amount: number
     key: string
-    callback?: string
-    data?: string
-    position?: 'left' | 'right' | 'center'
-    theme?: string
-    sandbox?: boolean
+    amount: number
     phone?: string
     name?: string
     email?: string
-    paymentmethod?: 'momo' | 'card'
+    data?: string
+    sandbox?: boolean
+    theme?: string
+    position?: 'center' | 'left' | 'right'
 }
 
 export interface KKiaPayResponse {
     transactionId: string
-    status: string
-    phone?: string
+    status: 'SUCCESS'
     amount: number
-    fees: number
-    receivedAmount: number
-    paymentMethod: string
-    [key: string]: any
+    phone?: string
+    name?: string
+    email?: string
+    data?: string
 }
 
 export interface KKiaPayError {
+    status: 'FAILED'
     message: string
-    code?: string
-    [key: string]: any
+    transactionId?: string
 }
 
+// ✅ DÉCLARATIONS GLOBALES POUR LE SDK KKIAPAY SELON LA DOCUMENTATION
 declare global {
     interface Window {
+        // ✅ CORRECTION: API correcte selon la documentation officielle
         openKkiapayWidget: (config: KKiaPayConfig) => void
-        addSuccessListener: (callback: (response: KKiaPayResponse) => void) => void
-        addFailedListener: (callback: (error: KKiaPayError) => void) => void
-        removeKkiapayListener: () => void
+        // ✅ ÉVÉNEMENTS KKIAPAY
+        addKkiapayListener: (event: string, callback: (response: any) => void) => void
+        removeKkiapayListener: (event: string) => void
+        // ✅ API alternative (selon la documentation)
+        kkiapay?: {
+            open: (config: KKiaPayConfig) => void
+            close: () => void
+        }
     }
 }
 

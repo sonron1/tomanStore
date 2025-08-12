@@ -1,7 +1,34 @@
-
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- ✅ AJOUT: Composant de debug en développement -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+      <KKiaPayDebug />
+    </div>
+
+
+    <!-- ✅ AJOUT: État de chargement pendant l'hydratation -->
+    <div v-if="!isHydrated" class="flex justify-center items-center py-20">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+    </div>
+
+    <!-- ✅ AJOUT: Message si panier vide après hydratation -->
+    <div v-else-if="cartItems.length === 0" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-20">
+      <div class="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l-2.5 5m0 0h12.5M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6"></path>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Votre panier est vide</h1>
+      <p class="text-gray-600 dark:text-gray-400 mb-8">
+        Vous devez ajouter des articles à votre panier avant de pouvoir passer commande.
+      </p>
+      <NuxtLink to="/products" class="btn-primary">
+        Explorer nos produits
+      </NuxtLink>
+    </div>
+
+    <!-- ✅ CONTENU PRINCIPAL: Affiché seulement si le panier contient des articles -->
+    <div v-else class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Finaliser ma commande</h1>
         <p class="text-gray-600 dark:text-gray-400 mt-2">
@@ -175,7 +202,6 @@
                   </div>
                   <div class="text-right">
                     <div class="font-medium text-gray-900 dark:text-white">
-                      <!-- ✅ CORRECTION: Afficher prix en FCFA -->
                       {{ option.price === 0 ? 'Gratuit' : `${formatPrice(option.price)} FCFA` }}
                     </div>
                   </div>
@@ -215,7 +241,6 @@
                   </p>
                 </div>
                 <p class="font-semibold text-gray-900 dark:text-white text-sm">
-                  <!-- ✅ CORRECTION: Prix en FCFA -->
                   {{ formatPrice(item.product.price * item.quantity) }} FCFA
                 </p>
               </div>
@@ -225,23 +250,19 @@
             <div class="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div class="flex justify-between text-sm">
                 <span class="text-gray-600 dark:text-gray-400">Sous-total</span>
-                <!-- ✅ CORRECTION: Prix en FCFA -->
                 <span class="text-gray-900 dark:text-white">{{ formatPrice(cartTotal) }} FCFA</span>
               </div>
               <div class="flex justify-between text-sm">
                 <span class="text-gray-600 dark:text-gray-400">Livraison</span>
                 <span class="text-gray-900 dark:text-white">
-                  <!-- ✅ CORRECTION: Prix livraison en FCFA -->
                   {{ selectedShipping?.price === 0 ? 'Gratuite' : `${formatPrice(selectedShipping?.price || 0)} FCFA` }}
                 </span>
               </div>
               <div v-if="!isFreeShipping && cartTotal < 25000" class="text-xs text-gray-500 dark:text-gray-400">
-                <!-- ✅ CORRECTION: Seuil livraison gratuite en FCFA -->
                 Plus que {{ formatPrice(25000 - cartTotal) }} FCFA pour la livraison gratuite !
               </div>
               <div class="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 dark:border-gray-700">
                 <span class="text-gray-900 dark:text-white">Total</span>
-                <!-- ✅ CORRECTION: Total final en FCFA -->
                 <span class="text-primary-600 dark:text-primary-400">{{ formatPrice(finalTotal) }} FCFA</span>
               </div>
             </div>
@@ -268,9 +289,8 @@
               </div>
             </div>
 
-            <!-- ✅ BOUTON DE PAIEMENT AMÉLIORÉ -->
+            <!-- Bouton de paiement amélioré -->
             <div class="payment-section">
-              <!-- Bouton de paiement principal -->
               <button
                   @click="handlePayment"
                   :disabled="isProcessing || !isFormValid || finalTotal <= 0"
@@ -310,7 +330,6 @@
                     <div class="w-6 h-6 bg-white rounded-full flex items-center justify-center">
                       <span class="text-primary-600 font-bold text-xs">K</span>
                     </div>
-                    <!-- ✅ CORRECTION: Montant en FCFA -->
                     <span>{{ formatPrice(finalTotal) }} FCFA</span>
                   </div>
                 </div>
@@ -397,13 +416,21 @@ const { formatPrice } = useCurrency()
 
 const { items: cartItems, total: cartTotal, isFreeShipping } = storeToRefs(cartStore)
 
-// Rediriger si panier vide
-if (cartItems.value.length === 0) {
-  throw createError({
-    statusCode: 404,
-    statusMessage: 'Votre panier est vide'
-  })
-}
+// ✅ AJOUT: État d'hydratation pour éviter les erreurs SSR
+const isHydrated = ref(false)
+
+// ✅ HYDRATATION CÔTÉ CLIENT
+onMounted(() => {
+  if (process.client) {
+    // Forcer le chargement du panier depuis localStorage
+    cartStore.forceSync()
+
+    // Marquer comme hydraté après un délai pour laisser le temps au store de se synchroniser
+    nextTick(() => {
+      isHydrated.value = true
+    })
+  }
+})
 
 // Données du formulaire
 const formData = reactive({

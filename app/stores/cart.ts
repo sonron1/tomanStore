@@ -1,7 +1,7 @@
 
 import { defineStore } from 'pinia'
 import type { Product } from '~/types/product'
-import {useNotificationStore} from "~/stores/notifications";
+import { useNotificationStore } from "~/stores/notifications"
 
 export interface CartItem {
     product: Product
@@ -12,14 +12,14 @@ export interface CartItem {
 
 interface CartState {
     items: CartItem[]
+    isHydrated: boolean // ✅ AJOUT: Flag pour l'hydratation
 }
 
 export const useCartStore = defineStore('cart', {
     state: (): CartState => ({
-        items: []
+        items: [],
+        isHydrated: false // ✅ AJOUT: Flag pour savoir si les données ont été chargées
     }),
-
-    // ✅ PAS de plugin externe, persistance manuelle
 
     getters: {
         itemCount(): number {
@@ -67,28 +67,38 @@ export const useCartStore = defineStore('cart', {
             if (process.client) {
                 try {
                     localStorage.setItem('tomanstore-cart', JSON.stringify(this.items))
+                    console.log('💾 Panier sauvegardé:', this.items.length, 'articles')
                 } catch (error) {
                     console.error('❌ Erreur sauvegarde panier:', error)
                 }
             }
         },
 
-        // ✅ CHARGEMENT DEPUIS LE STORAGE
+        // ✅ CHARGEMENT DEPUIS LE STORAGE AMÉLIORÉ
         loadFromStorage(): void {
-            if (process.client) {
+            if (process.client && !this.isHydrated) {
                 try {
                     const stored = localStorage.getItem('tomanstore-cart')
                     if (stored) {
                         const parsedItems = JSON.parse(stored)
                         if (Array.isArray(parsedItems)) {
                             this.items = parsedItems
+                            console.log('✅ Panier chargé depuis localStorage:', this.items.length, 'articles')
                         }
                     }
                 } catch (error) {
                     console.error('❌ Erreur chargement panier:', error)
                     this.items = []
+                } finally {
+                    this.isHydrated = true
                 }
             }
+        },
+
+        // ✅ NOUVELLE MÉTHODE: Forcer la synchronisation
+        forceSync(): void {
+            this.isHydrated = false
+            this.loadFromStorage()
         },
 
         // ✅ FONCTION ADDTOCART AVEC SAUVEGARDE
@@ -98,27 +108,27 @@ export const useCartStore = defineStore('cart', {
 
             // Validation du produit
             if (!product.inStock) {
-                notificationStore.notifyError('Produit indisponible', 'Ce produit n\'est plus en stock', 3000)
+                notificationStore.notifyError('Produit indisponible', 'Ce produit n\'est plus en stock')
                 return false
             }
 
             // Vérifier que la taille est disponible
             const selectedSize = product.sizes.find(s => s.size === size && s.available)
             if (!selectedSize) {
-                notificationStore.notifyError('Taille indisponible', `La taille ${size} n'est pas disponible`, 3000)
+                notificationStore.notifyError('Taille indisponible', `La taille ${size} n'est pas disponible`)
                 return false
             }
 
             // Vérifier que la couleur est disponible
             const selectedColor = product.colors.find(c => c.name === color && c.available)
             if (!selectedColor) {
-                notificationStore.notifyError('Couleur indisponible', `La couleur ${color} n'est pas disponible`, 3000)
+                notificationStore.notifyError('Couleur indisponible', `La couleur ${color} n'est pas disponible`)
                 return false
             }
 
             // Valider la quantité
             if (quantity <= 0 || quantity > 10) {
-                notificationStore.notifyError('Quantité invalide', 'La quantité doit être entre 1 et 10', 3000)
+                notificationStore.notifyError('Quantité invalide', 'La quantité doit être entre 1 et 10')
                 return false
             }
 
@@ -134,7 +144,7 @@ export const useCartStore = defineStore('cart', {
                 if (existingItem) {
                     const newQuantity = existingItem.quantity + quantity
                     if (newQuantity > 10) {
-                        notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit', 3000)
+                        notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit')
                         return false
                     }
                     existingItem.quantity = newQuantity
@@ -153,8 +163,7 @@ export const useCartStore = defineStore('cart', {
 
             notificationStore.notifySuccess(
                 'Produit ajouté !',
-                `${product.name} (${size}, ${color}) - ${formatPrice(product.price)} FCFA`,
-                3000
+                `${product.name} (${size}, ${color}) - ${formatPrice(product.price)} FCFA`
             )
 
             return true
@@ -177,7 +186,7 @@ export const useCartStore = defineStore('cart', {
             if (newQuantity <= 0) {
                 return this.removeFromCart(productId, size, color)
             } else if (newQuantity > 10) {
-                notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit', 3000)
+                notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit')
                 return false
             } else {
                 const item = this.items[itemIndex]
@@ -189,8 +198,7 @@ export const useCartStore = defineStore('cart', {
 
                     notificationStore.notifySuccess(
                         'Quantité mise à jour',
-                        `Nouvelle quantité : ${newQuantity}`,
-                        2000
+                        `Nouvelle quantité : ${newQuantity}`
                     )
                     return true
                 }
@@ -220,8 +228,7 @@ export const useCartStore = defineStore('cart', {
             if (removedItem) {
                 notificationStore.notifySuccess(
                     'Produit supprimé',
-                    `${removedItem.product.name} retiré du panier`,
-                    3000
+                    `${removedItem.product.name} retiré du panier`
                 )
             }
 
@@ -240,8 +247,7 @@ export const useCartStore = defineStore('cart', {
             if (itemsCount > 0) {
                 notificationStore.notifySuccess(
                     'Panier vidé',
-                    'Tous les articles ont été supprimés',
-                    3000
+                    'Tous les articles ont été supprimés'
                 )
             }
         },

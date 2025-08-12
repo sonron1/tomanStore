@@ -1,7 +1,7 @@
 import type { KKiaPayResponse, KKiaPayError } from '~/types/kkiapay'
-import {usePaymentStore} from "~/stores/payment";
-import {useCartStore} from "~/stores/cart";
-import {useNotificationStore} from "~/stores/notifications";
+import { usePaymentStore } from "~/stores/payment"
+import { useCartStore } from "~/stores/cart"
+import { useNotificationStore } from "~/stores/notifications"
 
 export const usePayment = () => {
     const paymentStore = usePaymentStore()
@@ -15,19 +15,25 @@ export const usePayment = () => {
         customerInfo?: { name?: string, email?: string, phone?: string }
     ) => {
         try {
+            console.log('💳 Démarrage du processus de paiement:', { amount, customerInfo })
+
             paymentStore.setProcessing(true)
             paymentStore.setError(null)
 
-            // Configuration du paiement
+            // ✅ CORRECTION: Configuration conforme à la documentation KKiaPay
             const paymentConfig = {
                 amount: amount,
                 theme: '#3b82f6',
                 data: JSON.stringify({
-                    orderId: `ORDER-${Date.now()}`,
-                    timestamp: new Date().toISOString()
+                    orderId: `TOMAN-${Date.now()}`,
+                    timestamp: new Date().toISOString(),
+                    items: cartStore.items.length
                 }),
+                sandbox: true, // ✅ Mode test pour le développement
                 ...customerInfo
             }
+
+            console.log('🔧 Configuration paiement:', paymentConfig)
 
             // Ajouter les listeners avant d'ouvrir le widget
             addPaymentListeners(
@@ -38,53 +44,66 @@ export const usePayment = () => {
             // Ouvrir le widget de paiement
             await openPayment(paymentConfig)
 
+            console.log('🎯 Widget KKiaPay ouvert avec succès')
+
         } catch (error) {
             paymentStore.setProcessing(false)
-            const errorMessage = error instanceof Error ? error.message : 'Erreur de paiement'
+            const errorMessage = error instanceof Error ? error.message : 'Erreur de paiement inconnue'
             paymentStore.setError(errorMessage)
 
-            notificationStore.notifyError('Erreur', errorMessage, 5000)
-            console.error('Erreur lors du processus de paiement:', error)
+            console.error('❌ Erreur processus paiement:', error)
+            notificationStore.notifyError('Erreur de paiement', errorMessage)
         }
     }
 
     // Gérer le succès du paiement
     const handlePaymentSuccess = (response: KKiaPayResponse) => {
-        console.log('🎉 Paiement réussi:', response)
+        console.log('🎉 Paiement réussi - Réponse complète:', response)
 
-        // Mettre à jour le store
-        paymentStore.handlePaymentSuccess(response)
+        try {
+            // Mettre à jour le store
+            paymentStore.handlePaymentSuccess(response)
 
-        // Vider le panier
-        cartStore.clearCart()
+            // Vider le panier
+            cartStore.clearCart()
 
-        // Notification de succès
-        notificationStore.notifySuccess(
-            'Paiement réussi !',
-            `Transaction ${response.transactionId} effectuée avec succès`,
-            5000
-        )
+            // Notification de succès
+            notificationStore.notifySuccess(
+                'Paiement réussi !',
+                `Transaction ${response.transactionId} effectuée avec succès`
+            )
 
-        // Redirection
-        navigateTo(`/order-confirmation?transaction=${response.transactionId}`)
+            // Redirection vers la page de confirmation
+            navigateTo(`/order-confirmation?transaction=${response.transactionId}`)
 
-        // Nettoyer les listeners
-        removePaymentListeners()
+        } catch (error) {
+            console.error('❌ Erreur lors du traitement du succès:', error)
+        } finally {
+            // Nettoyer
+            paymentStore.setProcessing(false)
+            removePaymentListeners()
+        }
     }
 
     // Gérer l'échec du paiement
     const handlePaymentError = (error: KKiaPayError) => {
-        console.error('❌ Erreur de paiement:', error)
+        console.error('❌ Paiement échoué - Erreur complète:', error)
 
-        // Mettre à jour le store
-        paymentStore.handlePaymentError(error)
+        try {
+            // Mettre à jour le store
+            paymentStore.handlePaymentError(error)
 
-        // Notification d'erreur
-        const errorMessage = error.message || 'Erreur lors du paiement'
-        notificationStore.notifyError('Paiement échoué', errorMessage, 5000)
+            // Notification d'erreur
+            const errorMessage = error.message || 'Échec du paiement'
+            notificationStore.notifyError('Paiement échoué', errorMessage)
 
-        // Nettoyer les listeners
-        removePaymentListeners()
+        } catch (err) {
+            console.error('❌ Erreur lors du traitement de l\'échec:', err)
+        } finally {
+            // Nettoyer
+            paymentStore.setProcessing(false)
+            removePaymentListeners()
+        }
     }
 
     return {
