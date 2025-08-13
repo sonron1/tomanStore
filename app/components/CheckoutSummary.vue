@@ -5,7 +5,7 @@
     </h2>
 
     <!-- Articles du panier -->
-    <div class="space-y-4 mb-6">
+    <div class="space-y-4 mb-6" v-if="cartItems.length > 0">
       <div
           v-for="item in cartItems"
           :key="`${item.product.id}-${item.size}-${item.color}`"
@@ -30,24 +30,23 @@
               Qté: {{ item.quantity }}
             </span>
             <span class="font-medium text-gray-900 dark:text-white text-sm">
-              <!-- ✅ CORRECTION: Remplacer € par FCFA -->
               {{ formatPrice(item.product.price * item.quantity) }} FCFA
             </span>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Message si panier vide -->
-      <div v-if="cartItems.length === 0" class="text-center py-8">
-        <div class="text-6xl mb-4">🛒</div>
-        <p class="text-gray-500 dark:text-gray-400">Votre panier est vide</p>
-        <NuxtLink
-            to="/products"
-            class="inline-block mt-4 text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          Continuer mes achats
-        </NuxtLink>
-      </div>
+    <!-- Message si panier vide -->
+    <div v-else class="text-center py-8">
+      <div class="text-6xl mb-4">🛒</div>
+      <p class="text-gray-500 dark:text-gray-400">Votre panier est vide</p>
+      <NuxtLink
+          to="/products"
+          class="inline-block mt-4 text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        Continuer mes achats
+      </NuxtLink>
     </div>
 
     <!-- Calculs des totaux -->
@@ -58,7 +57,6 @@
           Sous-total ({{ itemCount }} article{{ itemCount > 1 ? 's' : '' }})
         </span>
         <span class="font-medium text-gray-900 dark:text-white">
-          <!-- ✅ CORRECTION: Remplacer € par FCFA -->
           {{ formatPrice(subtotal) }} FCFA
         </span>
       </div>
@@ -69,26 +67,13 @@
           Livraison
         </span>
         <span class="font-medium text-gray-900 dark:text-white">
-          <!-- ✅ CORRECTION: Remplacer € par FCFA -->
           {{ shippingCost === 0 ? 'Gratuite' : `${formatPrice(shippingCost)} FCFA` }}
-        </span>
-      </div>
-
-      <!-- Remise sur TVA - adapter au contexte béninois -->
-      <div class="flex justify-between text-sm">
-        <span class="text-gray-600 dark:text-gray-400">
-          Remise fidélité
-        </span>
-        <span class="font-medium text-gray-900 dark:text-white">
-          <!-- ✅ CORRECTION: Remplacer € par FCFA -->
-          {{ loyaltyDiscount > 0 ? `-${formatPrice(loyaltyDiscount)} FCFA` : '0 FCFA' }}
         </span>
       </div>
 
       <!-- Code promo (s'il y en a un) -->
       <div v-if="discount > 0" class="flex justify-between text-sm text-green-600 dark:text-green-400">
         <span>Remise appliquée</span>
-        <!-- ✅ CORRECTION: Remplacer € par FCFA -->
         <span>-{{ formatPrice(discount) }} FCFA</span>
       </div>
 
@@ -99,7 +84,6 @@
             Total
           </span>
           <span class="text-xl font-bold text-blue-600 dark:text-blue-400">
-            <!-- ✅ CORRECTION: Remplacer € par FCFA -->
             {{ formatPrice(finalTotal) }} FCFA
           </span>
         </div>
@@ -132,7 +116,7 @@
       </p>
     </div>
 
-    <!-- Informations de sécurité adaptées au Bénin -->
+    <!-- Informations de sécurité -->
     <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
       <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
         <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
@@ -152,95 +136,106 @@
         <svg class="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
           <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
         </svg>
-        <span>Retours gratuits sous 15 jours</span>
+        <span>Livraison rapide au Bénin</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { PromoCodeMap } from '~/types/checkout'
+import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useCartStore } from '~/stores/cart'
-import { useCheckoutStore } from '~/stores/checkout'
-import { useNotificationStore } from '~/stores/notifications'
+import { useCurrency } from '~/composables/useCurrency'
 
-// ✅ AJOUT: Utiliser le composable useCurrency
+const cartStore = useCartStore()
 const { formatPrice } = useCurrency()
 
-// UTILISER VOTRE STORE EXISTANT
-const { items: cartItems, total: subtotal, itemCount } = useCartStore()
-const { shippingCost } = useCheckoutStore()
-const { notifySuccess, notifyError } = useNotificationStore()
+// ✅ Props pour recevoir les données de checkout
+const props = defineProps<{
+  shippingCost?: number
+}>()
 
-// État pour le code promo
-const promoCode = ref('')
+// ✅ Données réactives du panier avec fallbacks
+const { items, itemCount: storeItemCount, total: storeTotal } = storeToRefs(cartStore)
+
+const cartItems = computed(() => items?.value || [])
+const itemCount = computed(() => storeItemCount?.value || 0)
+const subtotal = computed(() => storeTotal?.value || 0)
+
+// ✅ Calculs simplifiés (sans remise fidélité)
+const shippingCost = computed(() => props.shippingCost || 0)
 const discount = ref(0)
+
+const finalTotal = computed(() => {
+  const sub = subtotal.value || 0
+  const shipping = shippingCost.value || 0
+  const disc = discount.value || 0
+
+  return Math.max(0, sub + shipping - disc)
+})
+
+// ✅ Code promo
+const promoCode = ref('')
 const applyingPromo = ref(false)
 const promoMessage = ref('')
 
-// ✅ ADAPTATION: Remise fidélité au lieu de TVA (plus adapté au contexte béninois)
-const loyaltyDiscount = computed(() => {
-  // Remise de 5% pour les commandes > 50 000 FCFA
-  return subtotal > 50000 ? subtotal * 0.05 : 0
-})
-
-// Total final avec livraison et remise
-const finalTotal = computed(() => {
-  return subtotal + shippingCost - loyaltyDiscount.value - discount.value
-})
-
-// ✅ ADAPTATION: Codes promo adaptés au contexte béninois (en FCFA)
-const validPromoCodes: PromoCodeMap = {
-  'BENIN10': {
-    discount: 5000, // 5000 FCFA de remise
-    description: '5 000 FCFA de remise de bienvenue'
-  },
-  'TOMAN20': {
-    discount: 10000, // 10000 FCFA de remise
-    description: '10 000 FCFA de remise'
-  },
-  'LIVRAISONBJ': {
-    discount: 0,
-    freeShipping: true,
-    description: 'Livraison gratuite'
-  }
-}
-
-// Appliquer un code promo
 const applyPromoCode = async () => {
   if (!promoCode.value.trim()) return
 
   applyingPromo.value = true
   promoMessage.value = ''
 
-  try {
-    // Simuler un délai d'API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+  // Simulation de codes promo
+  setTimeout(() => {
+    const code = promoCode.value.trim().toUpperCase()
+    const sub = subtotal.value || 0
 
-    const code = promoCode.value.toUpperCase()
-    const promoInfo = validPromoCodes[code]
-
-    if (promoInfo) {
-      if (promoInfo.freeShipping) {
-        promoMessage.value = `Code appliqué : ${promoInfo.description}`
-        notifySuccess('Code promo appliqué !', promoInfo.description)
-      } else {
-        discount.value = promoInfo.discount
-        promoMessage.value = `Code appliqué : ${promoInfo.description}`
-        notifySuccess('Code promo appliqué !', `${formatPrice(promoInfo.discount)} FCFA de remise`)
-      }
-
-      // Réinitialiser le champ
-      promoCode.value = ''
-    } else {
-      promoMessage.value = 'Code promo invalide'
-      notifyError('Code promo invalide', 'Vérifiez votre code et réessayez')
+    switch (code) {
+      case 'WELCOME10':
+        discount.value = Math.round(sub * 0.1) // 10%
+        promoMessage.value = 'Code promo appliqué: -10%'
+        break
+      case 'FIRST5':
+        discount.value = 5000 // 5000 FCFA
+        promoMessage.value = 'Code promo appliqué: -5000 FCFA'
+        break
+      case 'FREE':
+        discount.value = shippingCost.value
+        promoMessage.value = 'Livraison gratuite appliquée'
+        break
+      default:
+        promoMessage.value = 'Code promo invalide'
+        break
     }
-  } catch (error) {
-    promoMessage.value = 'Erreur lors de l\'application du code'
-    notifyError('Erreur', 'Impossible d\'appliquer le code promo')
-  } finally {
+
     applyingPromo.value = false
-  }
+  }, 1000)
 }
+
+// ✅ Watcher pour réinitialiser la remise si le panier change
+watch(subtotal, (newSubtotal) => {
+  if (discount.value > 0) {
+    // Recalculer les remises en pourcentage
+    if (promoCode.value.toUpperCase() === 'WELCOME10') {
+      discount.value = Math.round(newSubtotal * 0.1)
+    }
+  }
+})
+
+// ✅ Debug
+onMounted(() => {
+  console.log('🔧 CheckoutSummary mounted:', {
+    itemCount: itemCount.value,
+    subtotal: subtotal.value,
+    shippingCost: shippingCost.value,
+    finalTotal: finalTotal.value
+  })
+})
 </script>
+
+<style scoped>
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6;
+}
+</style>

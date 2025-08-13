@@ -1,229 +1,169 @@
-
 import { defineStore } from 'pinia'
 import type { Product } from '~/types/product'
-import { useNotificationStore } from "~/stores/notifications"
 
-export interface CartItem {
+interface CartItem {
     product: Product
     quantity: number
     size: string
     color: string
 }
 
-interface CartState {
-    items: CartItem[]
-    isHydrated: boolean // ✅ AJOUT: Flag pour l'hydratation
-}
+export const useCartStore = defineStore('cart', () => {
+    // ✅ État réactif
+    const items = ref<CartItem[]>([])
+    const isLoaded = ref(false)
 
-export const useCartStore = defineStore('cart', {
-    state: (): CartState => ({
-        items: [],
-        isHydrated: false // ✅ AJOUT: Flag pour savoir si les données ont été chargées
-    }),
+    // ✅ Getters calculés - CORRECTION DES BUGS
+    const itemCount = computed(() => {
+        // ✅ Calcul sécurisé du nombre d'articles
+        if (!Array.isArray(items.value)) return 0
 
-    getters: {
-        itemCount(): number {
-            return this.items.reduce((total, item) => total + item.quantity, 0)
-        },
+        return items.value.reduce((total, item) => {
+            const quantity = typeof item.quantity === 'number' ? item.quantity : 0
+            return total + quantity
+        }, 0)
+    })
 
-        total(): number {
-            return this.items.reduce((total, item) => total + (item.product.price * item.quantity), 0)
-        },
+    const total = computed(() => {
+        // ✅ Calcul sécurisé du total
+        if (!Array.isArray(items.value)) return 0
 
-        isFreeShipping(): boolean {
-            return this.total >= 25000
-        },
+        return items.value.reduce((total, item) => {
+            const price = typeof item.product?.price === 'number' ? item.product.price : 0
+            const quantity = typeof item.quantity === 'number' ? item.quantity : 0
+            return total + (price * quantity)
+        }, 0)
+    })
 
-        getTotalWithShipping(): number {
-            const shippingCost = this.isFreeShipping ? 0 : 2500
-            return this.total + shippingCost
-        },
+    const isFreeShipping = computed(() => {
+        return total.value >= 25000
+    })
 
-        isInCart() {
-            return (productId: number, size: string, color: string): boolean => {
-                return this.items.some(item =>
-                    item.product.id === productId &&
-                    item.size === size &&
-                    item.color === color
-                )
-            }
-        },
+    const getTotalWithShipping = computed(() => {
+        const shippingCost = isFreeShipping.value ? 0 : 2500
+        return total.value + shippingCost
+    })
 
-        getItemQuantity() {
-            return (productId: number, size: string, color: string): number => {
-                const item = this.items.find(item =>
-                    item.product.id === productId &&
-                    item.size === size &&
-                    item.color === color
-                )
-                return item ? item.quantity : 0
+    // ✅ Fonction de sauvegarde dans localStorage
+    const _saveToStorage = () => {
+        if (process.client) {
+            try {
+                const dataToSave = items.value.map(item => ({
+                    ...item,
+                    // ✅ S'assurer que les valeurs sont correctes
+                    quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+                    size: item.size || 'M',
+                    color: item.color || 'Default'
+                }))
+
+                localStorage.setItem('cart-items', JSON.stringify(dataToSave))
+                console.log('💾 Panier sauvegardé:', dataToSave.length, 'articles, itemCount:', itemCount.value)
+            } catch (error) {
+                console.error('❌ Erreur sauvegarde panier:', error)
             }
         }
-    },
+    }
 
-    actions: {
-        // ✅ PERSISTANCE MANUELLE
-        _saveToStorage(): void {
-            if (process.client) {
-                try {
-                    localStorage.setItem('tomanstore-cart', JSON.stringify(this.items))
-                    console.log('💾 Panier sauvegardé:', this.items.length, 'articles')
-                } catch (error) {
-                    console.error('❌ Erreur sauvegarde panier:', error)
-                }
-            }
-        },
+    // ✅ Fonction de chargement depuis localStorage
+    const _loadFromStorage = () => {
+        if (process.client && !isLoaded.value) {
+            try {
+                const saved = localStorage.getItem('cart-items')
+                if (saved) {
+                    const parsedItems = JSON.parse(saved)
+                    if (Array.isArray(parsedItems)) {
+                        // ✅ Nettoyer et valider les données chargées
+                        items.value = parsedItems.map(item => ({
+                            product: item.product,
+                            quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
+                            size: typeof item.size === 'string' ? item.size : 'M',
+                            color: typeof item.color === 'string' ? item.color : 'Default'
+                        })).filter(item =>
+                            // ✅ Filtrer les items invalides
+                            item.product &&
+                            typeof item.product.id === 'number' &&
+                            typeof item.product.price === 'number'
+                        )
 
-        // ✅ CHARGEMENT DEPUIS LE STORAGE AMÉLIORÉ
-        loadFromStorage(): void {
-            if (process.client && !this.isHydrated) {
-                try {
-                    const stored = localStorage.getItem('tomanstore-cart')
-                    if (stored) {
-                        const parsedItems = JSON.parse(stored)
-                        if (Array.isArray(parsedItems)) {
-                            this.items = parsedItems
-                            console.log('✅ Panier chargé depuis localStorage:', this.items.length, 'articles')
-                        }
+                        console.log('📂 Panier chargé:', items.value.length, 'articles, itemCount calculé:', itemCount.value)
                     }
-                } catch (error) {
-                    console.error('❌ Erreur chargement panier:', error)
-                    this.items = []
-                } finally {
-                    this.isHydrated = true
                 }
+            } catch (error) {
+                console.error('❌ Erreur chargement panier:', error)
+                items.value = []
             }
-        },
+            isLoaded.value = true
+        }
+    }
 
-        // ✅ NOUVELLE MÉTHODE: Forcer la synchronisation
-        forceSync(): void {
-            this.isHydrated = false
-            this.loadFromStorage()
-        },
+    // ✅ Actions
+    const addToCart = (product: Product, quantity: number = 1, size: string = 'M', color: string = 'Default') => {
+        // ✅ Validation des paramètres
+        if (!product || typeof product.id !== 'number' || typeof product.price !== 'number') {
+            console.error('❌ Produit invalide:', product)
+            return false
+        }
 
-        // ✅ FONCTION ADDTOCART AVEC SAUVEGARDE
-        addToCart(product: Product, size: string, color: string, quantity: number = 1): boolean {
+        const validQuantity = typeof quantity === 'number' && quantity > 0 ? quantity : 1
+        const validSize = typeof size === 'string' && size.trim() ? size : 'M'
+        const validColor = typeof color === 'string' && color.trim() ? color : 'Default'
+
+        try {
             const notificationStore = useNotificationStore()
-            const { formatPrice } = useCurrency()
-
-            // Validation du produit
-            if (!product.inStock) {
-                notificationStore.notifyError('Produit indisponible', 'Ce produit n\'est plus en stock')
-                return false
-            }
-
-            // Vérifier que la taille est disponible
-            const selectedSize = product.sizes.find(s => s.size === size && s.available)
-            if (!selectedSize) {
-                notificationStore.notifyError('Taille indisponible', `La taille ${size} n'est pas disponible`)
-                return false
-            }
-
-            // Vérifier que la couleur est disponible
-            const selectedColor = product.colors.find(c => c.name === color && c.available)
-            if (!selectedColor) {
-                notificationStore.notifyError('Couleur indisponible', `La couleur ${color} n'est pas disponible`)
-                return false
-            }
-
-            // Valider la quantité
-            if (quantity <= 0 || quantity > 10) {
-                notificationStore.notifyError('Quantité invalide', 'La quantité doit être entre 1 et 10')
-                return false
-            }
 
             // Chercher si l'article existe déjà
-            const existingItemIndex = this.items.findIndex(
+            const existingItem = items.value.find(
                 item => item.product.id === product.id &&
-                    item.size === size &&
-                    item.color === color
+                    item.size === validSize &&
+                    item.color === validColor
             )
 
-            if (existingItemIndex > -1) {
-                const existingItem = this.items[existingItemIndex]
-                if (existingItem) {
-                    const newQuantity = existingItem.quantity + quantity
-                    if (newQuantity > 10) {
-                        notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit')
-                        return false
-                    }
-                    existingItem.quantity = newQuantity
-                }
+            if (existingItem) {
+                existingItem.quantity += validQuantity
+                console.log('➕ Quantité mise à jour:', existingItem.quantity, 'pour', product.name)
             } else {
-                this.items.push({
+                const newItem: CartItem = {
                     product: { ...product },
-                    quantity,
-                    size,
-                    color
-                })
+                    quantity: validQuantity,
+                    size: validSize,
+                    color: validColor
+                }
+                items.value.push(newItem)
+                console.log('🆕 Nouvel article ajouté:', newItem, 'ItemCount sera:', itemCount.value + validQuantity)
             }
 
-            // ✅ SAUVEGARDER APRÈS MODIFICATION
-            this._saveToStorage()
+            _saveToStorage()
 
             notificationStore.notifySuccess(
-                'Produit ajouté !',
-                `${product.name} (${size}, ${color}) - ${formatPrice(product.price)} FCFA`
+                'Ajouté au panier !',
+                `${product.name} a été ajouté à votre panier`
             )
 
+            console.log('✅ Article ajouté avec succès. ItemCount actuel:', itemCount.value)
             return true
-        },
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'ajout au panier:', error)
+            return false
+        }
+    }
 
-        // ✅ FONCTION UPDATEQUANTITY AVEC SAUVEGARDE
-        updateQuantity(productId: number, size: string, color: string, newQuantity: number): boolean {
+    const removeFromCart = (productId: number, size: string, color: string): boolean => {
+        try {
             const notificationStore = useNotificationStore()
 
-            const itemIndex = this.items.findIndex(
+            const itemIndex = items.value.findIndex(
                 item => item.product.id === productId &&
                     item.size === size &&
                     item.color === color
             )
 
             if (itemIndex === -1) {
+                console.warn('⚠️ Article non trouvé pour suppression')
                 return false
             }
 
-            if (newQuantity <= 0) {
-                return this.removeFromCart(productId, size, color)
-            } else if (newQuantity > 10) {
-                notificationStore.notifyError('Limite atteinte', 'Maximum 10 articles par produit')
-                return false
-            } else {
-                const item = this.items[itemIndex]
-                if (item) {
-                    item.quantity = newQuantity
-
-                    // ✅ SAUVEGARDER APRÈS MODIFICATION
-                    this._saveToStorage()
-
-                    notificationStore.notifySuccess(
-                        'Quantité mise à jour',
-                        `Nouvelle quantité : ${newQuantity}`
-                    )
-                    return true
-                }
-                return false
-            }
-        },
-
-        // ✅ FONCTION REMOVEFROMCART AVEC SAUVEGARDE
-        removeFromCart(productId: number, size: string, color: string): boolean {
-            const notificationStore = useNotificationStore()
-
-            const itemIndex = this.items.findIndex(
-                item => item.product.id === productId &&
-                    item.size === size &&
-                    item.color === color
-            )
-
-            if (itemIndex === -1) {
-                return false
-            }
-
-            const removedItem = this.items.splice(itemIndex, 1)[0]
-
-            // ✅ SAUVEGARDER APRÈS MODIFICATION
-            this._saveToStorage()
+            const removedItem = items.value.splice(itemIndex, 1)[0]
+            _saveToStorage()
 
             if (removedItem) {
                 notificationStore.notifySuccess(
@@ -232,45 +172,95 @@ export const useCartStore = defineStore('cart', {
                 )
             }
 
+            console.log('🗑️ Article supprimé:', removedItem?.product.name, 'ItemCount:', itemCount.value)
             return true
-        },
-
-        // ✅ CLEARCART AVEC SAUVEGARDE
-        clearCart(): void {
-            const notificationStore = useNotificationStore()
-            const itemsCount = this.itemCount
-            this.items = []
-
-            // ✅ SAUVEGARDER APRÈS MODIFICATION
-            this._saveToStorage()
-
-            if (itemsCount > 0) {
-                notificationStore.notifySuccess(
-                    'Panier vidé',
-                    'Tous les articles ont été supprimés'
-                )
-            }
-        },
-
-        getShippingSavings(): number {
-            return this.isFreeShipping ? 2500 : 0
-        },
-
-        getAmountForFreeShipping(): number {
-            return Math.max(0, 25000 - this.total)
-        },
-
-        getUniqueItemsCount(): number {
-            return this.items.length
-        },
-
-        getItemsByCategory(category: string): CartItem[] {
-            return this.items.filter(item => item.product.category === category)
-        },
-
-        getAveragePrice(): number {
-            if (this.items.length === 0) return 0
-            return this.total / this.itemCount
+        } catch (error) {
+            console.error('❌ Erreur lors de la suppression:', error)
+            return false
         }
+    }
+
+    const updateQuantity = (productId: number, size: string, color: string, newQuantity: number): boolean => {
+        if (typeof newQuantity !== 'number' || newQuantity < 0) {
+            console.warn('⚠️ Quantité invalide:', newQuantity)
+            return false
+        }
+
+        if (newQuantity === 0) {
+            return removeFromCart(productId, size, color)
+        }
+
+        try {
+            const item = items.value.find(
+                item => item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
+            )
+
+            if (!item) {
+                console.warn('⚠️ Article non trouvé pour mise à jour quantité')
+                return false
+            }
+
+            const oldQuantity = item.quantity
+            item.quantity = newQuantity
+            _saveToStorage()
+
+            console.log('🔢 Quantité mise à jour:', oldQuantity, '->', newQuantity, 'ItemCount:', itemCount.value)
+            return true
+        } catch (error) {
+            console.error('❌ Erreur lors de la mise à jour:', error)
+            return false
+        }
+    }
+
+    const clearCart = () => {
+        const itemCount = items.value.length
+        items.value = []
+        _saveToStorage()
+        console.log('🗑️ Panier vidé:', itemCount, 'articles supprimés')
+    }
+
+    const getItemInCart = (productId: number, size: string, color: string): CartItem | undefined => {
+        return items.value.find(
+            item => item.product.id === productId &&
+                item.size === size &&
+                item.color === color
+        )
+    }
+
+    const isInCart = (productId: number, size?: string, color?: string): boolean => {
+        return items.value.some(
+            item => item.product.id === productId &&
+                (!size || item.size === size) &&
+                (!color || item.color === color)
+        )
+    }
+
+    // ✅ Initialisation automatique côté client
+    if (process.client) {
+        _loadFromStorage()
+    }
+
+    return {
+        // État
+        items: readonly(items),
+        itemCount,
+        total,
+        isFreeShipping,
+        getTotalWithShipping,
+        isLoaded: readonly(isLoaded),
+
+        // Actions
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        getItemInCart,
+        isInCart,
+
+        // Méthodes internes (exposées pour debug)
+        _loadFromStorage,
+        _saveToStorage
     }
 })

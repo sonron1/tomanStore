@@ -145,16 +145,15 @@
 </template>
 
 <script setup lang="ts">
-import {useCartStore} from "~/stores/cart";
-import {useNotificationStore} from "~/stores/notifications";
+import { storeToRefs } from 'pinia'
+import { useCartStore } from "~/stores/cart"
+import { useNotificationStore } from "~/stores/notifications"
+import { useCurrency } from "~/composables/useCurrency"
 
 const cartStore = useCartStore()
 const { items, total, itemCount, getTotalWithShipping, isFreeShipping } = storeToRefs(cartStore)
 const { updateQuantity, removeFromCart } = cartStore
-
-const formatPrice = (price: number): string => {
-  return price.toFixed(2)
-}
+const { formatPrice } = useCurrency()
 
 const proceedToCheckout = async () => {
   if (items.value.length === 0) {
@@ -173,7 +172,7 @@ const proceedToCheckout = async () => {
 }
 
 watchEffect(() => {
-  console.log('🔄 Panier mis à jour:', items.value.length, 'articles')
+  console.log('🔄 Panier mis à jour:', items.value.length, 'articles', 'Total:', total.value)
 })
 
 useSeoMeta({

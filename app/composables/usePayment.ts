@@ -1,118 +1,255 @@
-import type { KKiaPayResponse, KKiaPayError } from '~/types/kkiapay'
-import { usePaymentStore } from "~/stores/payment"
-import { useCartStore } from "~/stores/cart"
-import { useNotificationStore } from "~/stores/notifications"
+import type { KKiaPayResponse, KKiaPayError, TransactionData } from '~/types/kkiapay'
 
 export const usePayment = () => {
-    const paymentStore = usePaymentStore()
+    const { openPayment, setupPaymentListeners, clearPaymentListeners, ensureKkiaPayReady } = useKKiaPay()
     const cartStore = useCartStore()
     const notificationStore = useNotificationStore()
-    const { openPayment, addPaymentListeners, removePaymentListeners } = useKKiaPay()
+    const router = useRouter()
 
-    // Traiter un paiement
-    const processPayment = async (
-        amount: number,
-        customerInfo?: { name?: string, email?: string, phone?: string }
-    ) => {
+    const isProcessing = ref(false)
+    const currentTransaction = ref<string | null>(null)
+
+    // ✅ Générateur d'ID de commande (corrigé - substring au lieu de substr)
+    const generateOrderId = (): string => {
+        const timestamp = Date.now().toString(36)
+        const random = Math.random().toString(36).substring(2, 7) // ✅ substring au lieu de substr
+        return `TOM${timestamp}${random}`.toUpperCase()
+    }
+
+    // ✅ Vérification côté serveur
+    const verifyTransactionServer = async (transactionId: string): Promise<boolean> => {
         try {
-            console.log('💳 Démarrage du processus de paiement:', { amount, customerInfo })
+            console.log('🔍 Vérification côté serveur:', transactionId)
 
-            paymentStore.setProcessing(true)
-            paymentStore.setError(null)
+            // Appel à l'API de vérification Nuxt
+            const response = await $fetch('/api/verify-transaction', {
+                method: 'POST',
+                body: { transactionId }
+            })
 
-            // ✅ CORRECTION: Configuration conforme à la documentation KKiaPay
-            const paymentConfig = {
-                amount: amount,
-                theme: '#3b82f6',
-                data: JSON.stringify({
-                    orderId: `TOMAN-${Date.now()}`,
-                    timestamp: new Date().toISOString(),
-                    items: cartStore.items.length
-                }),
-                sandbox: true, // ✅ Mode test pour le développement
-                ...customerInfo
+            if (response?.success && response?.data?.status === 'SUCCESSFUL') {
+                console.log('✅ Transaction vérifiée côté serveur')
+                return true
+            } else {
+                console.warn('⚠️ Transaction non confirmée côté serveur')
+                return false
             }
-
-            console.log('🔧 Configuration paiement:', paymentConfig)
-
-            // Ajouter les listeners avant d'ouvrir le widget
-            addPaymentListeners(
-                (response: KKiaPayResponse) => handlePaymentSuccess(response),
-                (error: KKiaPayError) => handlePaymentError(error)
-            )
-
-            // Ouvrir le widget de paiement
-            await openPayment(paymentConfig)
-
-            console.log('🎯 Widget KKiaPay ouvert avec succès')
-
         } catch (error) {
-            paymentStore.setProcessing(false)
-            const errorMessage = error instanceof Error ? error.message : 'Erreur de paiement inconnue'
-            paymentStore.setError(errorMessage)
-
-            console.error('❌ Erreur processus paiement:', error)
-            notificationStore.notifyError('Erreur de paiement', errorMessage)
+            console.error('❌ Erreur vérification serveur:', error)
+            return false
         }
     }
 
-    // Gérer le succès du paiement
-    const handlePaymentSuccess = (response: KKiaPayResponse) => {
-        console.log('🎉 Paiement réussi - Réponse complète:', response)
-
+    // ✅ Gestionnaire de succès de paiement
+    const handlePaymentSuccess = async (response: KKiaPayResponse) => {
         try {
-            // Mettre à jour le store
-            paymentStore.handlePaymentSuccess(response)
+            console.log('🎉 Paiement réussi - Traitement...', response)
 
-            // Vider le panier
-            cartStore.clearCart()
+            currentTransaction.value = response.transactionId
 
-            // Notification de succès
+            // ✅ Afficher notification de succès
             notificationStore.notifySuccess(
                 'Paiement réussi !',
-                `Transaction ${response.transactionId} effectuée avec succès`
+                `Transaction ${response.transactionId.slice(0, 8)}... confirmée`
             )
 
-            // Redirection vers la page de confirmation
-            navigateTo(`/order-confirmation?transaction=${response.transactionId}`)
+            // ✅ Vérification côté serveur (optionnelle)
+            await verifyTransactionServer(response.transactionId)
+
+            // ✅ Vider le panier
+            cartStore.clearCart()
+
+            // ✅ Rediriger vers la page de succès
+            await router.push({
+                path: '/order/success',
+                query: {
+                    transactionId: response.transactionId,
+                    amount: response.amount.toString()
+                }
+            })
 
         } catch (error) {
-            console.error('❌ Erreur lors du traitement du succès:', error)
+            console.error('❌ Erreur post-paiement:', error)
+
+            notificationStore.notifyWarning(
+                'Paiement effectué',
+                'Votre paiement a été traité mais une erreur est survenue. Contactez le support si nécessaire.'
+            )
         } finally {
-            // Nettoyer
-            paymentStore.setProcessing(false)
-            removePaymentListeners()
+            isProcessing.value = false
+            clearPaymentListeners()
         }
     }
 
-    // Gérer l'échec du paiement
+    // ✅ Gestionnaire d'erreur de paiement
     const handlePaymentError = (error: KKiaPayError) => {
-        console.error('❌ Paiement échoué - Erreur complète:', error)
+        console.error('❌ Paiement échoué:', error)
+
+        let errorMessage = 'Votre paiement a échoué'
+
+        // Messages d'erreur personnalisés selon le type
+        if (error.message?.toLowerCase().includes('insufficient')) {
+            errorMessage = 'Solde insuffisant'
+        } else if (error.message?.toLowerCase().includes('network')) {
+            errorMessage = 'Problème de connexion'
+        } else if (error.message?.toLowerCase().includes('canceled')) {
+            errorMessage = 'Paiement annulé'
+        }
+
+        notificationStore.notifyError(
+            'Paiement échoué',
+            errorMessage
+        )
+
+        isProcessing.value = false
+        clearPaymentListeners()
+    }
+
+    // ✅ Gestionnaire de paiement en attente
+    const handlePaymentPending = (response: any) => {
+        console.log('⏳ Paiement en attente:', response)
+
+        notificationStore.notifyInfo(
+            'Paiement en cours',
+            'Votre paiement est en cours de traitement...'
+        )
+    }
+
+    // ✅ Fonction principale de traitement du paiement (gestion d'erreur améliorée)
+    const processPayment = async (checkoutData: {
+        customer: {
+            firstName: string
+            lastName: string
+            email: string
+            phone: string
+        }
+        shipping: {
+            address: string
+            city: string
+            phone: string
+        }
+        totals: {
+            subtotal: number
+            shipping: number
+            total: number
+        }
+    }) => {
+        if (isProcessing.value) {
+            console.warn('⚠️ Paiement déjà en cours...')
+            return
+        }
 
         try {
-            // Mettre à jour le store
-            paymentStore.handlePaymentError(error)
+            console.log('💳 Début du processus de paiement...')
+            isProcessing.value = true
 
-            // Notification d'erreur
-            const errorMessage = error.message || 'Échec du paiement'
-            notificationStore.notifyError('Paiement échoué', errorMessage)
+            // ✅ Vérifier que le SDK est prêt
+            const sdkReady = await ensureKkiaPayReady()
+            if (!sdkReady) {
+                // ✅ Ne pas faire de throw ici - gérer l'erreur proprement
+                console.error('❌ SDK KKiaPay non disponible')
+                notificationStore.notifyError(
+                    'Service indisponible',
+                    'Le service de paiement est momentanément indisponible. Veuillez réessayer dans quelques instants.'
+                )
+                return // ✅ Return au lieu de throw
+            }
 
-        } catch (err) {
-            console.error('❌ Erreur lors du traitement de l\'échec:', err)
+            // ✅ Préparer les données de transaction
+            const transactionData: TransactionData = {
+                orderId: generateOrderId(),
+                cartItems: cartStore.items,
+                shipping: checkoutData.shipping,
+                customer: checkoutData.customer,
+                totals: checkoutData.totals
+            }
+
+            // ✅ Configurer les listeners avant d'ouvrir le paiement
+            setupPaymentListeners(
+                handlePaymentSuccess,
+                handlePaymentError,
+                handlePaymentPending
+            )
+
+            // ✅ Configuration du paiement
+            const paymentConfig = {
+                amount: Math.round(checkoutData.totals.total),
+                name: `${checkoutData.customer.firstName} ${checkoutData.customer.lastName}`,
+                email: checkoutData.customer.email,
+                phone: checkoutData.customer.phone,
+                reason: `Commande TomanStore #${transactionData.orderId}`,
+                partnerId: 'tomanstore',
+            }
+
+            console.log('🔧 Ouverture du widget de paiement:', {
+                ...paymentConfig,
+                orderId: transactionData.orderId
+            })
+
+            // ✅ Ouvrir le widget de paiement avec gestion d'erreur
+            try {
+                await openPayment(paymentConfig, transactionData)
+                console.log('✅ Widget de paiement ouvert avec succès')
+            } catch (paymentError) {
+                console.error('❌ Erreur lors de l\'ouverture du widget:', paymentError)
+
+                // ✅ Gestion spécifique de l'erreur d'ouverture
+                notificationStore.notifyError(
+                    'Erreur d\'ouverture',
+                    'Impossible d\'ouvrir le widget de paiement. Vérifiez votre connexion et réessayez.'
+                )
+
+                // ✅ Nettoyer les listeners si l'ouverture échoue
+                clearPaymentListeners()
+            }
+
+        } catch (error) {
+            console.error('❌ Erreur générale lors du paiement:', error)
+
+            // ✅ Gestion d'erreur plus robuste
+            const errorMessage = error instanceof Error
+                ? error.message
+                : 'Une erreur inattendue est survenue lors de l\'initialisation du paiement'
+
+            notificationStore.notifyError(
+                'Erreur de paiement',
+                errorMessage
+            )
         } finally {
-            // Nettoyer
-            paymentStore.setProcessing(false)
-            removePaymentListeners()
+            // ✅ S'assurer que isProcessing est remis à false
+            isProcessing.value = false
         }
+    }
+
+    // ✅ Fonction de nettoyage manuelle (utile pour les tests)
+    const resetPayment = () => {
+        isProcessing.value = false
+        currentTransaction.value = null
+        clearPaymentListeners()
+        console.log('🔄 État de paiement réinitialisé')
+    }
+
+    // ✅ Nettoyage automatique
+    if (process.client) {
+        onUnmounted(() => {
+            clearPaymentListeners()
+            isProcessing.value = false
+        })
     }
 
     return {
+        // États
+        isProcessing: readonly(isProcessing),
+        currentTransaction: readonly(currentTransaction),
+
+        // Méthodes principales
         processPayment,
+        verifyTransactionServer,
+        resetPayment, // ✅ Nouvelle méthode
+
+        // Gestionnaires (exposés pour tests)
         handlePaymentSuccess,
         handlePaymentError,
-        // États réactifs du store
-        isProcessing: computed(() => paymentStore.isProcessing),
-        error: computed(() => paymentStore.error),
-        currentTransaction: computed(() => paymentStore.currentTransaction)
+        handlePaymentPending
     }
 }

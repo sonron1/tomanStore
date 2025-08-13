@@ -1,32 +1,35 @@
-import type { KKiaPayConfig, KKiaPayResponse, KKiaPayError } from '~/types/kkiapay'
+import type { KKiaPayConfig, KKiaPayResponse, KKiaPayError, TransactionData } from '~/types/kkiapay'
 
 export const useKKiaPay = () => {
     const config = useRuntimeConfig()
     const isKkiaPayReady = ref(false)
+    const isLoading = ref(false)
+    const error = ref<string | null>(null)
 
-    // ✅ AMÉLIORATION: Vérification plus robuste
-    const checkKkiaPayReady = () => {
+    // ✅ Vérification de disponibilité du SDK
+    const checkKkiaPayReady = (): boolean => {
         if (process.client) {
             const hasWidget = typeof window.openKkiapayWidget === 'function'
-            const hasListeners = typeof window.addKkiapayListener === 'function'
+            const hasAddListener = typeof window.addKkiapayListener === 'function'
             const hasRemoveListener = typeof window.removeKkiapayListener === 'function'
 
-            isKkiaPayReady.value = hasWidget && hasListeners && hasRemoveListener
+            const ready = hasWidget && hasAddListener && hasRemoveListener
+            isKkiaPayReady.value = ready
 
             console.log('🔍 Vérification SDK KKiaPay:', {
                 hasWidget,
-                hasListeners,
+                hasAddListener,
                 hasRemoveListener,
-                isReady: isKkiaPayReady.value
+                isReady: ready
             })
 
-            return isKkiaPayReady.value
+            return ready
         }
         return false
     }
 
-    // ✅ AMÉLIORATION: Attente plus intelligente
-    const waitForKkiaPay = (): Promise<boolean> => {
+    // ✅ Attente intelligente du SDK avec fallback
+    const waitForKkiaPay = async (): Promise<boolean> => {
         return new Promise((resolve) => {
             if (checkKkiaPayReady()) {
                 resolve(true)
@@ -34,77 +37,86 @@ export const useKKiaPay = () => {
             }
 
             console.log('⏳ Attente du SDK KKiaPay...')
+            isLoading.value = true
 
+            // ✅ Utiliser la fonction d'attente du plugin si disponible
+            if (window.waitForKkiaPay) {
+                window.waitForKkiaPay().then((success) => {
+                    isLoading.value = false
+                    isKkiaPayReady.value = success
+                    resolve(success)
+                })
+                return
+            }
+
+            // ✅ Fallback avec vérification manuelle
             let attempts = 0
-            const maxAttempts = 100 // 50 secondes (100 × 500ms)
+            const maxAttempts = 75 // 15 secondes
 
             const checkInterval = setInterval(() => {
                 attempts++
-                console.log(`🔄 Tentative ${attempts}/${maxAttempts} - Vérification SDK...`)
 
                 if (checkKkiaPayReady()) {
-                    console.log('🎉 SDK KKiaPay maintenant disponible!')
                     clearInterval(checkInterval)
+                    isLoading.value = false
                     resolve(true)
                     return
                 }
 
-                // Diagnostic détaillé toutes les 10 tentatives
-                if (attempts % 10 === 0) {
-                    console.log('🔍 Diagnostic SDK:', {
-                        windowKeys: Object.keys(window).filter(k => k.toLowerCase().includes('kkia')),
-                        scriptsLoaded: document.querySelectorAll('script[src*="kkiapay"]').length,
-                        networkStatus: navigator.onLine ? 'En ligne' : 'Hors ligne'
-                    })
-                }
-
                 if (attempts >= maxAttempts) {
                     clearInterval(checkInterval)
-                    console.error('❌ TIMEOUT: SDK KKiaPay non chargé après', (maxAttempts * 500 / 1000), 'secondes')
+                    isLoading.value = false
+                    error.value = 'Timeout: SDK KKiaPay non disponible'
+                    console.error('❌ Timeout attente SDK KKiaPay')
                     resolve(false)
                 }
-            }, 500)
+            }, 200)
         })
     }
 
-    // ✅ AMÉLIORATION: Chargement manuel du script si nécessaire
+    // ✅ Chargement dynamique du script si nécessaire
     const loadKkiaPayScript = (): Promise<boolean> => {
         return new Promise((resolve, reject) => {
+            if (!process.client) {
+                resolve(false)
+                return
+            }
+
             // Vérifier si le script existe déjà
             const existingScript = document.querySelector('script[src*="kkiapay"]')
             if (existingScript) {
                 console.log('📜 Script KKiaPay déjà présent')
-                resolve(true)
+                setTimeout(() => resolve(checkKkiaPayReady()), 1000)
                 return
             }
 
-            console.log('📥 Chargement manuel du script KKiaPay...')
+            console.log('📥 Chargement dynamique du script KKiaPay...')
 
             const script = document.createElement('script')
             script.src = 'https://cdn.kkiapay.me/k.js'
-            script.async = false
-            script.defer = false
+            script.defer = true
+            script.crossOrigin = 'anonymous'
 
             script.onload = () => {
-                console.log('✅ Script KKiaPay chargé manuellement')
-                // Attendre un peu que les fonctions soient initialisées
+                console.log('✅ Script KKiaPay chargé dynamiquement')
                 setTimeout(() => {
                     resolve(checkKkiaPayReady())
                 }, 1000)
             }
 
-            script.onerror = (error) => {
-                console.error('❌ Erreur chargement manuel du script:', error)
-                reject(error)
+            script.onerror = (err) => {
+                console.error('❌ Erreur chargement dynamique:', err)
+                reject(new Error('Échec du chargement du script KKiaPay'))
             }
 
             document.head.appendChild(script)
         })
     }
 
-    // ✅ FONCTION DE RÉCUPÉRATION INTELLIGENTE
+    // ✅ Fonction de récupération complète
     const ensureKkiaPayReady = async (): Promise<boolean> => {
         console.log('🛡️ Vérification/récupération du SDK KKiaPay...')
+        error.value = null
 
         // 1. Vérification immédiate
         if (checkKkiaPayReady()) {
@@ -117,143 +129,189 @@ export const useKKiaPay = () => {
             return true
         }
 
-        // 3. Tentative de chargement manuel
-        console.log('🔧 Tentative de récupération par chargement manuel...')
+        // 3. Tentative de chargement dynamique
+        console.log('🔧 Tentative de récupération par chargement dynamique...')
         try {
-            const manualLoad = await loadKkiaPayScript()
-            if (manualLoad) {
+            const dynamicLoad = await loadKkiaPayScript()
+            if (dynamicLoad) {
                 return true
             }
-        } catch (error) {
-            console.error('❌ Chargement manuel échoué:', error)
+        } catch (err) {
+            console.error('❌ Chargement dynamique échoué:', err)
+            error.value = 'Impossible de charger le SDK KKiaPay'
         }
 
-        // 4. Dernière chance avec une attente supplémentaire
-        console.log('⏰ Dernière chance - attente supplémentaire...')
+        // 4. Dernière chance
+        console.log('⏰ Dernière tentative...')
         return new Promise((resolve) => {
             setTimeout(() => {
-                const finalCheck = checkKkiaPayReady()
-                console.log(finalCheck ? '🎉 Récupération réussie!' : '💀 Échec définitif')
-                resolve(finalCheck)
+                const success = checkKkiaPayReady()
+                console.log(success ? '🎉 Récupération réussie!' : '💀 Échec définitif')
+                if (!success) {
+                    error.value = 'SDK KKiaPay définitivement indisponible'
+                }
+                resolve(success)
             }, 3000)
         })
     }
 
-    const openPayment = async (paymentConfig: Omit<KKiaPayConfig, 'key'>) => {
+    // ✅ Ouverture du widget de paiement
+    const openPayment = async (paymentConfig: Omit<KKiaPayConfig, 'key'>, transactionData?: TransactionData) => {
         try {
             console.log('🚀 Début ouverture paiement KKiaPay...')
+            error.value = null
+            isLoading.value = true
 
-            // ✅ UTILISER LA FONCTION DE RÉCUPÉRATION
+            // Vérifier la disponibilité du SDK
             const isReady = await ensureKkiaPayReady()
             if (!isReady) {
-                throw new Error('KKiaPay SDK indisponible après toutes les tentatives de récupération')
+                throw new Error('SDK KKiaPay indisponible après toutes les tentatives')
             }
 
+            // Configuration complète du paiement
             const fullConfig: KKiaPayConfig = {
-                ...paymentConfig,
                 key: config.public.kkiapayPublicKey,
-                sandbox: config.public.isKkiapayDev || true,
-                position: 'center'
+                sandbox: config.public.isKkiapayDev,
+                position: 'center',
+                theme: 'blue',
+                ...paymentConfig,
+                // ✅ Ajouter les données de transaction si fournies
+                data: transactionData ? JSON.stringify(transactionData) : paymentConfig.data
             }
 
             console.log('🔧 Configuration paiement:', {
                 ...fullConfig,
-                key: `${fullConfig.key?.slice(0, 8)}...`
+                key: `${fullConfig.key?.slice(0, 8)}...`,
+                data: transactionData ? '[Transaction Data]' : fullConfig.data?.slice(0, 50) + '...'
             })
 
+            // Ouvrir le widget
             window.openKkiapayWidget(fullConfig)
-            console.log('✅ Widget KKiaPay ouvert avec succès')
+            console.log('✅ Widget KKiaPay ouvert')
 
-        } catch (error) {
-            console.error('❌ Erreur ouverture paiement:', error)
-            throw error
+        } catch (err) {
+            console.error('❌ Erreur ouverture paiement:', err)
+            error.value = err instanceof Error ? err.message : 'Erreur lors de l\'ouverture du paiement'
+            throw err
+        } finally {
+            isLoading.value = false
         }
     }
 
-    const addPaymentListeners = (
+    // ✅ Gestion des événements de paiement
+    const setupPaymentListeners = (
         onSuccess: (response: KKiaPayResponse) => void,
-        onError: (error: KKiaPayError) => void
+        onError: (error: KKiaPayError) => void,
+        onPending?: (response: any) => void
     ) => {
-        if (process.client && typeof window.addKkiapayListener === 'function') {
-            console.log('🔗 Ajout des listeners KKiaPay...')
+        if (!process.client || typeof window.addKkiapayListener !== 'function') {
+            console.warn('⚠️ Listeners non disponibles')
+            return
+        }
 
-            window.addKkiapayListener('success', (response: any) => {
-                console.log('✅ Paiement réussi:', response)
-                onSuccess(response)
-            })
+        console.log('🔗 Configuration des listeners de paiement...')
 
-            window.addKkiapayListener('failed', (error: any) => {
-                console.error('❌ Paiement échoué:', error)
-                onError(error)
-            })
+        // Success
+        window.addKkiapayListener('success', (response: KKiaPayResponse) => {
+            console.log('✅ Paiement réussi:', response)
+            onSuccess(response)
+        })
 
+        // Failed
+        window.addKkiapayListener('failed', (error: KKiaPayError) => {
+            console.error('❌ Paiement échoué:', error)
+            onError(error)
+        })
+
+        // Pending (optionnel)
+        if (onPending) {
             window.addKkiapayListener('pending', (response: any) => {
                 console.log('⏳ Paiement en attente:', response)
+                onPending(response)
             })
-
-            console.log('✅ Listeners ajoutés avec succès')
         }
+
+        console.log('✅ Listeners configurés')
     }
 
-    const removePaymentListeners = () => {
+    // ✅ Nettoyage des listeners
+    const clearPaymentListeners = () => {
         if (process.client && typeof window.removeKkiapayListener === 'function') {
-            console.log('🗑️ Suppression des listeners...')
+            console.log('🗑️ Nettoyage des listeners...')
             window.removeKkiapayListener('success')
             window.removeKkiapayListener('failed')
             window.removeKkiapayListener('pending')
         }
     }
 
+    // ✅ Fonction de test pour le développement
     const testSDK = () => {
-        if (process.client) {
-            console.log('🧪 Test complet du SDK KKiaPay:')
-            console.log('- openKkiapayWidget:', typeof window.openKkiapayWidget)
-            console.log('- addKkiapayListener:', typeof window.addKkiapayListener)
-            console.log('- removeKkiapayListener:', typeof window.removeKkiapayListener)
-            console.log('- window.kkiapay:', typeof window.kkiapay)
-            console.log('- Clé publique:', config.public.kkiapayPublicKey?.slice(0, 12) + '...')
-            console.log('- Mode sandbox:', config.public.isKkiapayDev)
-            console.log('- SDK Prêt:', isKkiaPayReady.value ? '✅' : '❌')
+        if (!process.client) return
 
-            const kkiaObjects = Object.getOwnPropertyNames(window).filter(name =>
-                name.toLowerCase().includes('kkia')
-            )
-            console.log('- Objets KKiaPay:', kkiaObjects)
+        console.log('🧪 Test complet du SDK KKiaPay:')
+        console.log('- openKkiapayWidget:', typeof window.openKkiapayWidget)
+        console.log('- addKkiapayListener:', typeof window.addKkiapayListener)
+        console.log('- removeKkiapayListener:', typeof window.removeKkiapayListener)
+        console.log('- Clé publique:', config.public.kkiapayPublicKey?.slice(0, 8) + '...')
+        console.log('- Mode sandbox:', config.public.isKkiapayDev)
+        console.log('- État ready:', isKkiaPayReady.value)
 
-            return {
-                isReady: isKkiaPayReady.value,
-                hasWidget: typeof window.openKkiapayWidget === 'function',
-                hasListeners: typeof window.addKkiapayListener === 'function'
+        return {
+            hasWidget: typeof window.openKkiapayWidget === 'function',
+            hasListeners: typeof window.addKkiapayListener === 'function',
+            config: {
+                publicKey: config.public.kkiapayPublicKey,
+                sandbox: config.public.isKkiapayDev
             }
         }
-        return { isReady: false, hasWidget: false, hasListeners: false }
     }
 
-    // ✅ INITIALISATION AMÉLIORÉE
-    onMounted(async () => {
-        if (process.client) {
-            console.log('🔧 Initialisation avancée du SDK KKiaPay...')
+    // ✅ Auto-vérification côté client
+    if (process.client) {
+        onMounted(() => {
+            // Vérification initiale après montage
+            setTimeout(() => {
+                checkKkiaPayReady()
+            }, 1000)
 
-            // Test initial
-            testSDK()
+            // Écouter les événements SDK
+            window.addEventListener('kkiapay-ready', () => {
+                isKkiaPayReady.value = true
+                error.value = null
+            })
 
-            // Assurer que KKiaPay est prêt
-            await ensureKkiaPayReady()
+            window.addEventListener('kkiapay-error', () => {
+                error.value = 'Erreur de chargement du SDK KKiaPay'
+            })
+        })
 
-            // Test final
-            const finalResult = testSDK()
-            console.log('📊 Résultat final:', finalResult)
-        }
-    })
+        // Nettoyage automatique
+        onUnmounted(() => {
+            clearPaymentListeners()
+        })
+    }
 
     return {
+        // États
         isKkiaPayReady: readonly(isKkiaPayReady),
-        checkKkiaPayReady,
-        waitForKkiaPay,
+        isLoading: readonly(isLoading),
+        error: readonly(error),
+
+        // Méthodes principales
         ensureKkiaPayReady,
         openPayment,
-        addPaymentListeners,
-        removePaymentListeners,
-        testSDK
+        setupPaymentListeners,
+        clearPaymentListeners,
+
+        // Utilitaires
+        checkKkiaPayReady,
+        testSDK,
+
+        // Configuration
+        config: {
+            publicKey: config.public.kkiapayPublicKey,
+            sandbox: config.public.isKkiapayDev,
+            baseUrl: config.public.kkiapayBaseUrl
+        }
     }
 }

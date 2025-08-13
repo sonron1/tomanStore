@@ -23,8 +23,13 @@
         💳 Test Paiement (1000 FCFA)
       </button>
 
-      <button @click="forceReloadSDK" class="px-4 py-2 bg-red-500 text-white rounded">
+      <button @click="forceReloadSDK" class="px-4 py-2 bg-red-500 text-white rounded text-xs ml-2">
         🔄 Recharger SDK
+      </button>
+
+      <!-- ✅ Nouveau bouton de diagnostic complet -->
+      <button @click="fullDiagnostic" class="px-4 py-2 bg-purple-500 text-white rounded text-xs ml-2">
+        🔍 Diagnostic Complet
       </button>
     </div>
   </div>
@@ -33,7 +38,7 @@
 <script setup lang="ts">
 import { useKKiaPay } from '~/composables/useKKiaPay'
 
-const { isKkiaPayReady, testSDK } = useKKiaPay()
+const { isKkiaPayReady, testSDK, checkKkiaPayReady } = useKKiaPay()
 const config = useRuntimeConfig()
 
 const showDebug = ref(process.env.NODE_ENV === 'development')
@@ -93,6 +98,34 @@ const testPayment = () => {
   }
 }
 
+// ✅ Nouveau diagnostic complet
+const fullDiagnostic = () => {
+  console.log('🔍 === DIAGNOSTIC COMPLET KKIAPAY ===')
+  console.log('Environment:', {
+    NODE_ENV: process.env.NODE_ENV,
+    isDev: config.public.isKkiapayDev,
+    publicKey: config.public.kkiapayPublicKey,
+    baseUrl: config.public.kkiapayBaseUrl
+  })
+
+  if (process.client) {
+    console.log('Window objects:', {
+      openKkiapayWidget: typeof window.openKkiapayWidget,
+      addKkiapayListener: typeof window.addKkiapayListener,
+      removeKkiapayListener: typeof window.removeKkiapayListener,
+      waitForKkiaPay: typeof window.waitForKkiaPay,
+      kkiaPayLoaded: window.kkiaPayLoaded
+    })
+
+    console.log('DOM:', {
+      scriptsCount: document.querySelectorAll('script[src*="kkiapay"]').length,
+      scripts: Array.from(document.querySelectorAll('script[src*="kkiapay"]')).map(s => s.getAttribute('src'))
+    })
+  }
+
+  testSDK()
+}
+
 onMounted(() => {
   if (process.client) {
     // Attendre un peu puis tester
@@ -101,6 +134,4 @@ onMounted(() => {
     }, 2000)
   }
 })
-
-
 </script>

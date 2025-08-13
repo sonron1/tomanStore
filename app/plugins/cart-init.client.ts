@@ -1,21 +1,32 @@
-
-// ✅ CORRECTION: Import explicite du store
-import { useCartStore } from '~/stores/cart'
-
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin(async () => {
     if (process.client) {
-        const cartStore = useCartStore()
+        console.log('🛒 Initialisation du panier côté client...')
 
-        // ✅ CORRECTION: Utiliser loadFromStorage au lieu de reloadFromStorage
-        cartStore.loadFromStorage()
+        // ✅ Attendre plusieurs ticks pour s'assurer que Pinia est complètement prêt
+        await nextTick()
+        await new Promise(resolve => setTimeout(resolve, 100))
 
-        // Écouter les changements de localStorage (synchronisation entre onglets)
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'tomanstore-cart') {
-                console.log('🔄 Synchronisation panier entre onglets')
-                // ✅ CORRECTION: Utiliser loadFromStorage au lieu de reloadFromStorage
-                cartStore.loadFromStorage()
+        try {
+            const cartStore = useCartStore()
+
+            // ✅ Vérifier que le store est disponible et la méthode existe
+            if (cartStore && typeof cartStore._loadFromStorage === 'function') {
+                // Charger depuis le localStorage
+                cartStore._loadFromStorage()
+
+                // Attendre et vérifier le chargement
+                await nextTick()
+
+                console.log('✅ Panier initialisé depuis localStorage:', {
+                    itemCount: cartStore.itemCount,
+                    totalItems: cartStore.items?.length || 0,
+                    total: cartStore.total
+                })
+            } else {
+                console.warn('⚠️ Store panier non disponible ou méthode manquante')
             }
-        })
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'initialisation du panier:', error)
+        }
     }
 })

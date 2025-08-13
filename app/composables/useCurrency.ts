@@ -1,34 +1,31 @@
 export const useCurrency = () => {
-    // Configuration pour le Bénin (Franc CFA)
-    const currency = {
-        code: 'XOF',
-        symbol: 'FCFA',
-        locale: 'fr-BJ'
-    }
+    // ✅ Formatage des prix en FCFA avec séparateurs de milliers
+    const formatPrice = (price: number | string): string => {
+        const numericPrice = typeof price === 'string' ? parseFloat(price) : price
 
-    // Formater un prix en FCFA
-    const formatPrice = (amount: number): string => {
+        // Vérifier si c'est un nombre valide
+        if (isNaN(numericPrice)) {
+            console.warn('⚠️ Prix invalide passé à formatPrice:', price)
+            return '0'
+        }
+
+        // Formater avec séparateurs de milliers français
         return new Intl.NumberFormat('fr-FR', {
+            style: 'decimal',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
-        }).format(amount)
+        }).format(Math.round(numericPrice))
     }
 
-    // Formater avec devise
-    const formatPriceWithCurrency = (amount: number): string => {
-        return `${formatPrice(amount)} FCFA`
-    }
-
-    // Conversion Euro vers FCFA (taux approximatif)
-    const euroToFcfa = (euroAmount: number): number => {
-        const exchangeRate = 656 // 1 EUR ≈ 656 FCFA
-        return Math.round(euroAmount * exchangeRate)
+    // ✅ Formatage pour les calculs internes
+    const parsePrice = (priceString: string): number => {
+        const cleaned = priceString.replace(/[^\d.-]/g, '')
+        const parsed = parseFloat(cleaned)
+        return isNaN(parsed) ? 0 : parsed
     }
 
     return {
-        currency,
         formatPrice,
-        formatPriceWithCurrency,
-        euroToFcfa
+        parsePrice
     }
 }
