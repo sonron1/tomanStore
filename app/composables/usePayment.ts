@@ -1,7 +1,7 @@
 import type { KKiaPayResponse, KKiaPayError, TransactionData } from '~/types/kkiapay'
 
 export const usePayment = () => {
-    const { openPayment, setupPaymentListeners, clearPaymentListeners, ensureKkiaPayReady } = useKKiaPay()
+    const { openPayment, setupPaymentListeners, clearPaymentListeners, ensureKkiaPayReady, checkKkiaPayReady } = useKKiaPay()
     const cartStore = useCartStore()
     const notificationStore = useNotificationStore()
     const router = useRouter()
@@ -16,13 +16,18 @@ export const usePayment = () => {
         return `TOM${timestamp}${random}`.toUpperCase()
     }
 
-    // ✅ Vérification côté serveur
+    // ✅ Vérification côté serveur avec typage correct
     const verifyTransactionServer = async (transactionId: string): Promise<boolean> => {
         try {
             console.log('🔍 Vérification côté serveur:', transactionId)
 
             // Appel à l'API de vérification Nuxt
-            const response = await $fetch('/api/verify-transaction', {
+            const response = await $fetch<{
+                success?: boolean
+                data?: {
+                    status?: string
+                }
+            }>('/api/verify-transaction', {
                 method: 'POST',
                 body: { transactionId }
             })
@@ -61,9 +66,9 @@ export const usePayment = () => {
 
             // ✅ Rediriger vers la page de succès
             await router.push({
-                path: '/order/success',
+                path: '/order-confirmation',
                 query: {
-                    transactionId: response.transactionId,
+                    transaction: response.transactionId,
                     amount: response.amount.toString()
                 }
             })
@@ -115,7 +120,7 @@ export const usePayment = () => {
         )
     }
 
-    // ✅ Fonction principale de traitement du paiement (gestion d'erreur améliorée)
+    // ✅ Fonction principale de traitement du paiement (CORRECTION MAJEURE)
     const processPayment = async (checkoutData: {
         customer: {
             firstName: string
@@ -143,22 +148,27 @@ export const usePayment = () => {
             console.log('💳 Début du processus de paiement...')
             isProcessing.value = true
 
-            // ✅ Vérifier que le SDK est prêt
-            const sdkReady = await ensureKkiaPayReady()
-            if (!sdkReady) {
-                // ✅ Ne pas faire de throw ici - gérer l'erreur proprement
-                console.error('❌ SDK KKiaPay non disponible')
-                notificationStore.notifyError(
-                    'Service indisponible',
-                    'Le service de paiement est momentanément indisponible. Veuillez réessayer dans quelques instants.'
-                )
-                return // ✅ Return au lieu de throw
+            // ✅ CORRECTION: Vérification simple d'abord
+            if (process.client && typeof window.openKkiapayWidget === 'function') {
+                console.log('✅ SDK KKiaPay disponible - utilisation directe')
+            } else {
+                // ✅ Seulement si pas disponible, essayer ensureKkiaPayReady
+                console.log('⏳ SDK non disponible, tentative de récupération...')
+                const sdkReady = await ensureKkiaPayReady()
+                if (!sdkReady) {
+                    console.error('❌ SDK KKiaPay non disponible après récupération')
+                    notificationStore.notifyError(
+                        'Service indisponible',
+                        'Le service de paiement est momentanément indisponible. Veuillez réessayer dans quelques instants.'
+                    )
+                    return
+                }
             }
 
-            // ✅ Préparer les données de transaction
+            // ✅ Préparer les données de transaction (correction du typage)
             const transactionData: TransactionData = {
                 orderId: generateOrderId(),
-                cartItems: cartStore.items,
+                cartItems: [...cartStore.items], // ✅ Copier pour éviter readonly
                 shipping: checkoutData.shipping,
                 customer: checkoutData.customer,
                 totals: checkoutData.totals
@@ -186,21 +196,27 @@ export const usePayment = () => {
                 orderId: transactionData.orderId
             })
 
-            // ✅ Ouvrir le widget de paiement avec gestion d'erreur
-            try {
-                await openPayment(paymentConfig, transactionData)
+            // ✅ CORRECTION: Utilisation directe si disponible, sinon openPayment
+            if (process.client && typeof window.openKkiapayWidget === 'function') {
+                const config = useRuntimeConfig()
+
+                // ✅ Configuration complète du paiement avec typage correct
+                const fullConfig = {
+                    key: config.public.kkiapayPublicKey,
+                    sandbox: config.public.isKkiapayDev,
+                    position: 'center' as const, // ✅ Type literal pour position
+                    theme: 'blue' as const,     // ✅ Type literal pour theme
+                    ...paymentConfig,
+                    data: JSON.stringify(transactionData)
+                }
+
+                console.log('🚀 Ouverture directe du widget...')
+                window.openKkiapayWidget(fullConfig)
                 console.log('✅ Widget de paiement ouvert avec succès')
-            } catch (paymentError) {
-                console.error('❌ Erreur lors de l\'ouverture du widget:', paymentError)
-
-                // ✅ Gestion spécifique de l'erreur d'ouverture
-                notificationStore.notifyError(
-                    'Erreur d\'ouverture',
-                    'Impossible d\'ouvrir le widget de paiement. Vérifiez votre connexion et réessayez.'
-                )
-
-                // ✅ Nettoyer les listeners si l'ouverture échoue
-                clearPaymentListeners()
+            } else {
+                // ✅ Fallback vers openPayment
+                await openPayment(paymentConfig, transactionData)
+                console.log('✅ Widget de paiement ouvert via openPayment')
             }
 
         } catch (error) {
@@ -215,9 +231,12 @@ export const usePayment = () => {
                 'Erreur de paiement',
                 errorMessage
             )
+
+            // ✅ Nettoyer les listeners en cas d'erreur
+            clearPaymentListeners()
         } finally {
-            // ✅ S'assurer que isProcessing est remis à false
-            isProcessing.value = false
+            // ✅ S'assurer que isProcessing est remis à false SEULEMENT si pas de paiement lancé
+            // Le paiement remettra isProcessing à false dans les handlers
         }
     }
 

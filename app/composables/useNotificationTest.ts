@@ -2,7 +2,8 @@ export const useNotificationTest = () => {
     const { notifySuccess, notifyError, notifyWarning, notifyInfo } = useNotificationStore()
 
     const testAllNotifications = () => {
-        if (!process.client) {
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (!import.meta.client) {
             console.warn('Test notifications disponible seulement côté client')
             return
         }

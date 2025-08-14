@@ -1,49 +1,38 @@
 // ✅ Plugin côté serveur pour la vérification des transactions
 export default defineNuxtPlugin(() => {
-    if (process.server) {
-        console.log('🖥️ Plugin KKiaPay Server - Initialisation...')
+    console.log('🖥️ Plugin KKiaPay Server - Initialisation...')
 
-        const config = useRuntimeConfig()
+    const config = useRuntimeConfig()
 
-        // ✅ Fonction de vérification de transaction côté serveur
-        const verifyTransaction = async (transactionId: string) => {
-            try {
-                const response = await fetch(`${config.public.kkiapayBaseUrl}/transaction/${transactionId}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${config.kkiapayPrivateKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                })
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    // ✅ Fonction de vérification de transaction côté serveur
+    const verifyTransaction = async (transactionId: string) => {
+        try {
+            const response = await fetch(`${config.public.kkiapayBaseUrl}/transaction/${transactionId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${config.kkiapayPrivateKey}`,
+                    'Content-Type': 'application/json'
                 }
+            })
 
-                const data = await response.json()
-                console.log('✅ Transaction vérifiée côté serveur:', transactionId)
-                return data
-            } catch (error) {
-                console.error('❌ Erreur vérification transaction:', error)
-                throw error
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
             }
-        }
 
-        // ✅ Fournir les fonctions côté serveur
-        return {
-            provide: {
-                kkiapayServer: {
-                    verifyTransaction
-                }
-            }
+            const data = await response.json()
+            console.log('✅ Transaction vérifiée côté serveur:', transactionId)
+            return data
+        } catch (error) {
+            console.error('❌ Erreur vérification transaction:', error)
+            throw error
         }
     }
 
-    // ✅ Retourner un objet vide pour le côté client
+    // ✅ Fournir les fonctions côté serveur
     return {
         provide: {
             kkiapayServer: {
-                verifyTransaction: () => Promise.reject(new Error('Fonction disponible uniquement côté serveur'))
+                verifyTransaction
             }
         }
     }

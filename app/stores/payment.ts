@@ -1,9 +1,14 @@
 import type { KKiaPayResponse, KKiaPayError } from '~/types/kkiapay'
 
+// ✅ Interface étendue pour inclure les propriétés supplémentaires du store
+interface ExtendedKKiaPayResponse extends KKiaPayResponse {
+    failureReason?: string
+}
+
 interface PaymentState {
     isProcessing: boolean
-    currentTransaction: KKiaPayResponse | null
-    paymentHistory: KKiaPayResponse[]
+    currentTransaction: ExtendedKKiaPayResponse | null
+    paymentHistory: ExtendedKKiaPayResponse[]
     error: string | null
 }
 
@@ -24,18 +29,28 @@ export const usePaymentStore = defineStore('payment', {
             this.error = error
         },
 
-        setCurrentTransaction(transaction: KKiaPayResponse | null) {
+        setCurrentTransaction(transaction: ExtendedKKiaPayResponse | null) {
             this.currentTransaction = transaction
         },
 
         addToHistory(transaction: KKiaPayResponse) {
-            this.paymentHistory.push(transaction)
+            // ✅ Conversion vers ExtendedKKiaPayResponse
+            const extendedTransaction: ExtendedKKiaPayResponse = {
+                ...transaction
+            }
+            this.paymentHistory.push(extendedTransaction)
         },
 
         handlePaymentSuccess(response: KKiaPayResponse) {
             console.log('🎉 Paiement réussi:', response)
-            this.currentTransaction = response
-            this.paymentHistory.push(response)
+
+            // ✅ Conversion vers ExtendedKKiaPayResponse
+            const extendedResponse: ExtendedKKiaPayResponse = {
+                ...response
+            }
+
+            this.currentTransaction = extendedResponse
+            this.paymentHistory.push(extendedResponse)
             this.isProcessing = false
             this.error = null
         },
@@ -74,17 +89,17 @@ export const usePaymentStore = defineStore('payment', {
         },
 
         // ✅ Obtenir une transaction par ID
-        getTransactionById(transactionId: string): KKiaPayResponse | null {
+        getTransactionById(transactionId: string): ExtendedKKiaPayResponse | null {
             return this.paymentHistory.find(t => t.transactionId === transactionId) || null
         },
 
-        // ✅ Marquer une transaction comme échouée
+        // ✅ Marquer une transaction comme échouée (maintenant sans erreur TypeScript)
         markTransactionAsFailed(transactionId: string, reason?: string) {
             const transaction = this.paymentHistory.find(t => t.transactionId === transactionId)
             if (transaction) {
                 transaction.status = 'failed'
                 if (reason) {
-                    transaction.failureReason = reason
+                    transaction.failureReason = reason // ✅ Plus d'erreur TypeScript
                 }
             }
         },
@@ -111,7 +126,7 @@ export const usePaymentStore = defineStore('payment', {
             return this.paymentHistory.length > 0
         },
 
-        lastPayment(): KKiaPayResponse | null {
+        lastPayment(): ExtendedKKiaPayResponse | null {
             if (this.paymentHistory.length === 0) {
                 return null
             }
@@ -120,7 +135,7 @@ export const usePaymentStore = defineStore('payment', {
         },
 
         // ✅ Obtenir les transactions réussies uniquement
-        successfulPayments(): KKiaPayResponse[] {
+        successfulPayments(): ExtendedKKiaPayResponse[] {
             return this.paymentHistory.filter(t => t.status === 'success' || t.status === 'verified')
         },
 

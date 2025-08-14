@@ -8,7 +8,8 @@ export const useKKiaPay = () => {
 
     // ✅ Vérification de disponibilité du SDK
     const checkKkiaPayReady = (): boolean => {
-        if (process.client) {
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (import.meta.client) {
             const hasWidget = typeof window.openKkiapayWidget === 'function'
             const hasAddListener = typeof window.addKkiapayListener === 'function'
             const hasRemoveListener = typeof window.removeKkiapayListener === 'function'
@@ -40,7 +41,7 @@ export const useKKiaPay = () => {
             isLoading.value = true
 
             // ✅ Utiliser la fonction d'attente du plugin si disponible
-            if (window.waitForKkiaPay) {
+            if (import.meta.client && window.waitForKkiaPay) {
                 window.waitForKkiaPay().then((success) => {
                     isLoading.value = false
                     isKkiaPayReady.value = success
@@ -77,7 +78,8 @@ export const useKKiaPay = () => {
     // ✅ Chargement dynamique du script si nécessaire
     const loadKkiaPayScript = (): Promise<boolean> => {
         return new Promise((resolve, reject) => {
-            if (!process.client) {
+            // ✅ Utilisation d'import.meta.client au lieu de process.client
+            if (!import.meta.client) {
                 resolve(false)
                 return
             }
@@ -204,7 +206,8 @@ export const useKKiaPay = () => {
         onError: (error: KKiaPayError) => void,
         onPending?: (response: any) => void
     ) => {
-        if (!process.client || typeof window.addKkiapayListener !== 'function') {
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (!import.meta.client || typeof window.addKkiapayListener !== 'function') {
             console.warn('⚠️ Listeners non disponibles')
             return
         }
@@ -236,7 +239,8 @@ export const useKKiaPay = () => {
 
     // ✅ Nettoyage des listeners
     const clearPaymentListeners = () => {
-        if (process.client && typeof window.removeKkiapayListener === 'function') {
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (import.meta.client && typeof window.removeKkiapayListener === 'function') {
             console.log('🗑️ Nettoyage des listeners...')
             window.removeKkiapayListener('success')
             window.removeKkiapayListener('failed')
@@ -246,7 +250,8 @@ export const useKKiaPay = () => {
 
     // ✅ Fonction de test pour le développement
     const testSDK = () => {
-        if (!process.client) return
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (!import.meta.client) return
 
         console.log('🧪 Test complet du SDK KKiaPay:')
         console.log('- openKkiapayWidget:', typeof window.openKkiapayWidget)
@@ -266,8 +271,8 @@ export const useKKiaPay = () => {
         }
     }
 
-    // ✅ Auto-vérification côté client
-    if (process.client) {
+    // ✅ Auto-vérification côté client avec import.meta.client
+    if (import.meta.client) {
         onMounted(() => {
             // Vérification initiale après montage
             setTimeout(() => {

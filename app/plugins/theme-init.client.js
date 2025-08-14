@@ -1,10 +1,10 @@
-import {useThemeStore} from "~/stores/theme.js";
+import {useThemeStore} from "~/stores/theme";
 
 export default defineNuxtPlugin(() => {
-    if (process.client) {
-        const themeStore = useThemeStore()
+    const themeStore = useThemeStore()
 
-        // Initialiser le thème immédiatement pour éviter le flash
+    // S'exécuter dès que Nuxt est prêt côté client
+    onNuxtReady(() => {
         themeStore.loadTheme()
-    }
+    })
 })
