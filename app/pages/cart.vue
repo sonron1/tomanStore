@@ -96,7 +96,7 @@
               <span class="text-gray-600">Livraison</span>
               <span class="font-semibold">
                 <span v-if="isFreeShipping" class="text-green-600">Gratuite</span>
-                <span v-else>2 500 FCFA</span>
+                <span v-else>1 500 FCFA</span>
               </span>
             </div>
             <div v-if="!isFreeShipping" class="text-sm text-gray-500">

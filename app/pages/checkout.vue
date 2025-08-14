@@ -1,4 +1,3 @@
-
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
     <!-- Debug en développement -->
@@ -308,14 +307,14 @@ const shippingOptions = [
   {
     id: 'standard',
     name: 'Livraison Standard',
-    description: '3-5 jours ouvrés',
-    price: 2500
+    description: 'Disponible Cotonou - Calavi et environ (3-5 jours ouvrés)',
+    price: 1500
   },
   {
     id: 'express',
     name: 'Livraison Express',
-    description: '1-2 jours ouvrés',
-    price: 5000
+    description: 'Disponible Cotonou - Calavi et environ (1-2 jours ouvrés)',
+    price: 3000
   },
   {
     id: 'free',
