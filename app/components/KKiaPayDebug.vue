@@ -41,17 +41,17 @@ import { useKKiaPay } from '~/composables/useKKiaPay'
 const { isKkiaPayReady, testSDK, checkKkiaPayReady } = useKKiaPay()
 const config = useRuntimeConfig()
 
-const showDebug = ref(process.env.NODE_ENV === 'development')
+const showDebug = ref(import.meta.dev)
 
 const windowWidgetStatus = computed(() => {
-  if (process.client) {
+  if (import.meta.client) {
     return typeof window.openKkiapayWidget
   }
   return 'N/A (SSR)'
 })
 
 const windowListenerStatus = computed(() => {
-  if (process.client) {
+  if (import.meta.client) {
     return typeof window.addKkiapayListener
   }
   return 'N/A (SSR)'
@@ -82,7 +82,7 @@ const publicKey = computed(() => config.public.kkiapayPublicKey)
 const sandboxMode = computed(() => config.public.isKkiapayDev)
 
 const testPayment = () => {
-  if (process.client && window.openKkiapayWidget) {
+  if (import.meta.client && window.openKkiapayWidget) {
     try {
       window.openKkiapayWidget({
         key: config.public.kkiapayPublicKey,
@@ -102,13 +102,13 @@ const testPayment = () => {
 const fullDiagnostic = () => {
   console.log('🔍 === DIAGNOSTIC COMPLET KKIAPAY ===')
   console.log('Environment:', {
-    NODE_ENV: process.env.NODE_ENV,
-    isDev: config.public.isKkiapayDev,
+    isDev: import.meta.dev,
+    isClient: import.meta.client,
     publicKey: config.public.kkiapayPublicKey,
     baseUrl: config.public.kkiapayBaseUrl
   })
 
-  if (process.client) {
+  if (import.meta.client) {
     console.log('Window objects:', {
       openKkiapayWidget: typeof window.openKkiapayWidget,
       addKkiapayListener: typeof window.addKkiapayListener,
@@ -127,7 +127,7 @@ const fullDiagnostic = () => {
 }
 
 onMounted(() => {
-  if (process.client) {
+  if (import.meta.client) {
     // Attendre un peu puis tester
     setTimeout(() => {
       testSDK()
