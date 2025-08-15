@@ -1,7 +1,9 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
     compatibilityDate: '2025-07-15',
     devtools: { enabled: true },
+
+    srcDir: 'app/',
+    serverDir: 'app/server/',
 
     modules: [
         '@pinia/nuxt',
@@ -13,14 +15,12 @@ export default defineNuxtConfig({
         storesDirs: ['./stores/**']
     },
 
-    // ✅ Configuration des auto-imports dans la section dédiée
     imports: {
         dirs: [
             'composables',
             'utils',
             'stores'
         ],
-        // ✅ Imports depuis Pinia
         imports: [
             {
                 from: 'pinia',
@@ -55,8 +55,7 @@ export default defineNuxtConfig({
             script: [
                 {
                     src: 'https://cdn.kkiapay.me/k.js',
-                    // ✅ Chargement asynchrone pour de meilleures performances
-                    async: true,
+                    // ✅ CORRECTION : Utilisez SEULEMENT defer, pas async
                     defer: true,
                     crossorigin: 'anonymous'
                 }
@@ -66,17 +65,20 @@ export default defineNuxtConfig({
 
     ssr: true,
 
-    // ✅ Configuration pour éviter les problèmes d'hydratation
     experimental: {
         payloadExtraction: false
     },
 
     runtimeConfig: {
-        kkiapayPrivateKey: process.env.KKIAPAY_PRIVATE_KEY,
-        kkiapaySecret: process.env.KKIAPAY_SECRET,
+        // Privées (serveur uniquement)
+        kkiapayPrivateKey: process.env.NUXT_KKIAPAY_PRIVATE_KEY,
+        kkiapaySecret: process.env.NUXT_KKIAPAY_SECRET,
+
+        // Publiques (client + serveur)
         public: {
-            kkiapayPublicKey: process.env.KKIAPAY_PUBLIC_KEY || '6b2e5b20770411f09d7665c57074dbd4',
-            kkiapayBaseUrl: process.env.KKIAPAY_BASE_URL || 'https://api.kkiapay.me/v1',
+            // ✅ CORRECTION : Utiliser les bonnes variables d'environnement
+            kkiapayPublicKey: process.env.NUXT_PUBLIC_KKIAPAY_PUBLIC_KEY || '6b2e5b20770411f09d7665c57074dbd4',
+            kkiapayBaseUrl: process.env.NUXT_PUBLIC_KKIAPAY_BASE_URL || 'https://api.kkiapay.me/v1',
             isKkiapayDev: process.env.NODE_ENV === 'development'
         }
     },
