@@ -1,6 +1,7 @@
 # tomanStore - Boutique en ligne Nuxt.js
 
 Une application e-commerce moderne développée avec Nuxt.js, Vue.js 3, Pinia et TailwindCSS.
+<img width="1289" height="1293" alt="image" src="https://github.com/user-attachments/assets/2b08f625-e4c7-4618-9f57-e39655600a20" />
 
 ## 🚀 Fonctionnalités
 
