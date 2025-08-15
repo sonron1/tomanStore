@@ -1,19 +1,19 @@
 <template>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- En-tête avec résultats de recherche -->
+    <!-- En-tête -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-4">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">
         <span v-if="searchQuery">
           Résultats pour "{{ searchQuery }}"
         </span>
         <span v-else>Nos produits</span>
       </h1>
-      <p class="text-gray-600 text-lg">
+      <p class="text-gray-600 dark:text-gray-400 text-lg">
         <span v-if="searchQuery">
           {{ filteredProducts.length }} produit(s) trouvé(s)
         </span>
         <span v-else>
-          Découvrez notre collection complète de t-shirts
+          Découvrez notre collection de t-shirts made in Bénin
         </span>
       </p>
     </div>
@@ -21,21 +21,23 @@
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <!-- Sidebar avec filtres -->
       <div class="lg:col-span-1">
-        <div class="bg-white rounded-lg shadow-md p-6 sticky top-8">
+        <div class="card sticky top-8">
           <h2 class="text-lg font-semibold mb-6">Filtres</h2>
 
           <!-- Filtre par catégorie -->
           <div class="mb-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-3">Catégories</h3>
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Catégories</h3>
             <div class="space-y-2">
               <label class="flex items-center">
                 <input
                     v-model="selectedCategory"
                     type="radio"
                     value=""
-                    class="text-primary-600 focus:ring-primary-500 border-gray-300"
+                    class="text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                 >
-                <span class="ml-2 text-sm text-gray-600">Toutes ({{ allProducts.length }})</span>
+                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                  Toutes ({{ allProducts.length }})
+                </span>
               </label>
               <label
                   v-for="category in categories"
@@ -46,61 +48,61 @@
                     v-model="selectedCategory"
                     type="radio"
                     :value="category"
-                    class="text-primary-600 focus:ring-primary-500 border-gray-300"
+                    class="text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                 >
-                <span class="ml-2 text-sm text-gray-600">
+                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">
                   {{ category }} ({{ getProductsByCategory(category).length }})
                 </span>
               </label>
             </div>
           </div>
 
-          <!-- Filtre par prix -->
+          <!-- ✅ Filtre par prix en FCFA -->
           <div class="mb-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-3">Prix</h3>
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Prix</h3>
             <div class="space-y-2">
               <label class="flex items-center">
                 <input
                     v-model="priceRange"
                     type="radio"
                     value="all"
-                    class="text-primary-600 focus:ring-primary-500 border-gray-300"
+                    class="text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                 >
-                <span class="ml-2 text-sm text-gray-600">Tous les prix</span>
+                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Tous les prix</span>
               </label>
               <label class="flex items-center">
                 <input
                     v-model="priceRange"
                     type="radio"
-                    value="0-25"
-                    class="text-primary-600 focus:ring-primary-500 border-gray-300"
+                    value="0-15000"
+                    class="text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                 >
-                <span class="ml-2 text-sm text-gray-600">Moins de 25€</span>
+                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Moins de 15 000 FCFA</span>
               </label>
               <label class="flex items-center">
                 <input
                     v-model="priceRange"
                     type="radio"
-                    value="25-30"
-                    class="text-primary-600 focus:ring-primary-500 border-gray-300"
+                    value="15000-20000"
+                    class="text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                 >
-                <span class="ml-2 text-sm text-gray-600">25€ - 30€</span>
+                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">15 000 - 20 000 FCFA</span>
               </label>
               <label class="flex items-center">
                 <input
                     v-model="priceRange"
                     type="radio"
-                    value="30-50"
-                    class="text-primary-600 focus:ring-primary-500 border-gray-300"
+                    value="20000-999999"
+                    class="text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                 >
-                <span class="ml-2 text-sm text-gray-600">Plus de 30€</span>
+                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Plus de 20 000 FCFA</span>
               </label>
             </div>
           </div>
 
           <!-- Filtre par couleur -->
           <div class="mb-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-3">Couleurs</h3>
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Couleurs</h3>
             <div class="flex flex-wrap gap-2">
               <button
                   v-for="color in availableColors"
@@ -109,7 +111,7 @@
                   :class="[
                   'w-8 h-8 rounded-full border-2 transition-all',
                   selectedColors.includes(color.name)
-                    ? 'border-primary-600 scale-110'
+                    ? 'border-primary-600 scale-110 ring-2 ring-primary-200'
                     : 'border-gray-300 hover:border-gray-400'
                 ]"
                   :style="{ backgroundColor: color.hex }"
@@ -121,12 +123,12 @@
                 <span
                     v-for="color in selectedColors"
                     :key="`selected-${color}`"
-                    class="inline-flex items-center px-2 py-1 bg-primary-100 text-primary-800 text-xs rounded-full"
+                    class="inline-flex items-center px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs rounded-full"
                 >
                   {{ color }}
                   <button
                       @click="toggleColorFilter(color)"
-                      class="ml-1 text-primary-600 hover:text-primary-800"
+                      class="ml-1 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
                   >
                     ×
                   </button>
@@ -137,7 +139,7 @@
 
           <!-- Filtre par taille -->
           <div class="mb-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-3">Tailles</h3>
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Tailles</h3>
             <div class="flex flex-wrap gap-2">
               <button
                   v-for="size in availableSizes"
@@ -147,7 +149,7 @@
                   'px-3 py-1 border text-xs rounded transition-colors',
                   selectedSizes.includes(size)
                     ? 'border-primary-600 bg-primary-600 text-white'
-                    : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
                 ]"
               >
                 {{ size }}
@@ -155,7 +157,7 @@
             </div>
           </div>
 
-          <!-- Bouton réinitialiser les filtres -->
+          <!-- Bouton réinitialiser -->
           <button
               v-if="hasActiveFilters"
               @click="clearAllFilters"
@@ -170,12 +172,12 @@
       <div class="lg:col-span-3">
         <!-- Barre de tri -->
         <div class="flex justify-between items-center mb-6">
-          <span class="text-sm text-gray-600">
+          <span class="text-sm text-gray-600 dark:text-gray-400">
             {{ filteredProducts.length }} produit(s) affiché(s)
           </span>
           <select
               v-model="sortBy"
-              class="border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              class="border border-gray-300 dark:border-gray-600 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="default">Trier par défaut</option>
             <option value="price-asc">Prix croissant</option>
@@ -195,13 +197,13 @@
 
         <!-- Message si aucun produit -->
         <div v-else class="text-center py-16">
-          <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div class="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
             </svg>
           </div>
-          <h2 class="text-2xl font-semibold text-gray-900 mb-4">Aucun produit trouvé</h2>
-          <p class="text-gray-600 mb-8">
+          <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Aucun produit trouvé</h2>
+          <p class="text-gray-600 dark:text-gray-400 mb-8">
             <span v-if="searchQuery">
               Essayez de modifier votre recherche ou d'ajuster les filtres.
             </span>
@@ -222,9 +224,10 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
+// ✅ AJOUT: Import explicite du store et du type
 import type { Product } from '~/types/product'
+import { useProductsStore } from '~/stores/products'
 
 const route = useRoute()
 const {
@@ -243,10 +246,9 @@ const selectedColors = ref<string[]>([])
 const selectedSizes = ref<string[]>([])
 const sortBy = ref('default')
 
-// Terme de recherche depuis l'URL - Correction du type
+// Terme de recherche depuis l'URL
 const searchQuery = computed(() => {
   const search = route.query.search
-  // Gérer le cas où search peut être undefined ou un tableau
   if (typeof search === 'string') {
     return search
   } else if (Array.isArray(search)) {
@@ -255,91 +257,59 @@ const searchQuery = computed(() => {
   return ''
 })
 
-// Données de base - Conversion explicite en Product[]
+// ✅ CORRECTION: Données de base directement depuis le store
 const allProducts = computed((): Product[] => {
-  return products.map(product => ({
-    id: product.id,
-    name: product.name,
-    description: product.description,
-    price: product.price,
-    image: product.image,
-    category: product.category,
-    sizes: product.sizes.map(size => ({
-      size: size.size,
-      available: size.available
-    })),
-    colors: product.colors.map(color => ({
-      name: color.name,
-      hex: color.hex,
-      available: color.available
-    })),
-    inStock: product.inStock
-  }))
+  return products
 })
 
+// Récupérer les données pour les filtres
 const categories = computed(() => getAllCategories())
-
-// Couleurs et tailles disponibles avec hex
 const availableColors = computed(() => {
-  const colorsSet = new Set()
-  const colorsWithHex: Array<{name: string, hex: string}> = []
+  const colorMap = new Map<string, string>()
 
   allProducts.value.forEach(product => {
     product.colors.forEach(color => {
-      if (color.available && !colorsSet.has(color.name)) {
-        colorsSet.add(color.name)
-        colorsWithHex.push({ name: color.name, hex: color.hex })
+      if (color.available) {
+        colorMap.set(color.name, color.hex)
       }
     })
   })
 
-  return colorsWithHex
+  return Array.from(colorMap.entries()).map(([name, hex]) => ({ name, hex }))
 })
-
 const availableSizes = computed(() => getAllSizes())
 
-// Produits filtrés - CORRECTION ICI
+// Logique de filtrage
 const filteredProducts = computed((): Product[] => {
-  let filtered: Product[] = allProducts.value
+  let result = allProducts.value
 
-  // Appliquer la recherche seulement si searchQuery n'est pas vide
-  if (searchQuery.value && searchQuery.value.trim()) {
-    const searchResults = searchProducts(searchQuery.value)
-    filtered = searchResults || [] // Fallback vers tableau vide si undefined
+  // Filtre par recherche
+  if (searchQuery.value) {
+    result = searchProducts(searchQuery.value)
   }
 
   // Filtre par catégorie
   if (selectedCategory.value) {
-    filtered = filtered.filter(product => product.category === selectedCategory.value)
+    result = result.filter(product => product.category === selectedCategory.value)
   }
 
-// Filtre par prix - Correction complète des types
+  // Filtre par prix
   if (priceRange.value !== 'all') {
-    const priceParts = priceRange.value.split('-')
+    const priceParts = priceRange.value.split('-').map(Number)
+    const min = priceParts[0]
+    const max = priceParts[1]
 
-    // Vérification sécurisée des éléments du tableau
-    const minStr = priceParts[0]
-    const maxStr = priceParts[1]
-
-    if (minStr) { // S'assurer que minStr existe
-      const min = parseFloat(minStr)
-      const max = maxStr ? parseFloat(maxStr) : null
-
-      if (!isNaN(min)) { // Vérifier que min est un nombre valide
-        filtered = filtered.filter(product => {
-          if (max !== null && !isNaN(max)) {
-            return product.price >= min && product.price <= max
-          } else {
-            return product.price >= min
-          }
-        })
-      }
+    // Validation que min et max sont des nombres valides
+    if (typeof min === 'number' && !isNaN(min) && typeof max === 'number' && !isNaN(max)) {
+      result = result.filter(product => {
+        return product.price >= min && product.price < max
+      })
     }
   }
 
   // Filtre par couleurs
   if (selectedColors.value.length > 0) {
-    filtered = filtered.filter(product =>
+    result = result.filter(product =>
         product.colors.some(color =>
             selectedColors.value.includes(color.name) && color.available
         )
@@ -348,41 +318,33 @@ const filteredProducts = computed((): Product[] => {
 
   // Filtre par tailles
   if (selectedSizes.value.length > 0) {
-    filtered = filtered.filter(product =>
+    result = result.filter(product =>
         product.sizes.some(size =>
             selectedSizes.value.includes(size.size) && size.available
         )
     )
   }
 
-  return filtered
+  return result
 })
 
-// Produits triés
+// Tri des produits
 const sortedProducts = computed((): Product[] => {
-  const sorted = [...filteredProducts.value]
+  const products = [...filteredProducts.value]
 
   switch (sortBy.value) {
     case 'price-asc':
-      return sorted.sort((a, b) => a.price - b.price)
+      return products.sort((a, b) => a.price - b.price)
     case 'price-desc':
-      return sorted.sort((a, b) => b.price - a.price)
+      return products.sort((a, b) => b.price - a.price)
     case 'name':
-      return sorted.sort((a, b) => a.name.localeCompare(b.name))
+      return products.sort((a, b) => a.name.localeCompare(b.name))
     default:
-      return sorted
+      return products
   }
 })
 
-// Vérifier s'il y a des filtres actifs
-const hasActiveFilters = computed(() => {
-  return selectedCategory.value !== '' ||
-      priceRange.value !== 'all' ||
-      selectedColors.value.length > 0 ||
-      selectedSizes.value.length > 0
-})
-
-// Actions pour les filtres
+// Gestion des filtres
 const toggleColorFilter = (colorName: string) => {
   const index = selectedColors.value.indexOf(colorName)
   if (index > -1) {
@@ -401,21 +363,25 @@ const toggleSizeFilter = (size: string) => {
   }
 }
 
+const hasActiveFilters = computed(() => {
+  return selectedCategory.value ||
+      priceRange.value !== 'all' ||
+      selectedColors.value.length > 0 ||
+      selectedSizes.value.length > 0
+})
+
 const clearAllFilters = () => {
   selectedCategory.value = ''
   priceRange.value = 'all'
   selectedColors.value = []
   selectedSizes.value = []
-  sortBy.value = 'default'
 }
 
-// Meta tags dynamiques
+// Meta tags
 useSeoMeta({
-  title: () => searchQuery.value
-      ? `Recherche: ${searchQuery.value}`
-      : 'Produits',
-  description: () => searchQuery.value
-      ? `Résultats de recherche pour "${searchQuery.value}" - ${filteredProducts.value.length} produits trouvés`
-      : 'Découvrez notre collection complète de t-shirts de qualité.'
+  title: searchQuery.value
+      ? `Recherche: ${searchQuery.value} - TomanStore`
+      : 'Produits - TomanStore',
+  description: 'Découvrez notre collection complète de t-shirts fabriqués au Bénin. Prix abordables, qualité premium, livraison gratuite dès 25 000 FCFA.'
 })
 </script>

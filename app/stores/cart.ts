@@ -1,211 +1,266 @@
 import { defineStore } from 'pinia'
-import type { CartItem, Product } from '~/types/product'
-import {computed} from "vue";
+import type { Product } from '~/types/product'
 
-const STORAGE_KEY = 'tomanstore-cart-items'
+interface CartItem {
+    product: Product
+    quantity: number
+    size: string
+    color: string
+}
 
 export const useCartStore = defineStore('cart', () => {
-    // État réactif - utiliser shallowRef pour de meilleures performances avec des objets complexes
+    // ✅ État réactif
     const items = ref<CartItem[]>([])
+    const isLoaded = ref(false)
 
-    // Forcer la réactivité avec un trigger
-    const cartVersion = ref(0)
-
-    // Fonction pour charger depuis localStorage
-    const loadFromStorage = () => {
-        if (process.client) {
-            try {
-                const stored = localStorage.getItem(STORAGE_KEY)
-                if (stored) {
-                    const parsedItems = JSON.parse(stored)
-                    items.value = Array.isArray(parsedItems) ? parsedItems : []
-                    cartVersion.value++
-                    console.log('✅ Panier chargé:', items.value.length, 'articles')
-                }
-            } catch (error) {
-                console.warn('❌ Erreur chargement panier:', error)
-                items.value = []
-            }
-        }
-    }
-
-    // Fonction pour sauvegarder dans localStorage
-    const saveToStorage = () => {
-        if (process.client) {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value))
-                cartVersion.value++ // Forcer la réactivité
-                console.log('💾 Panier sauvegardé:', items.value.length, 'articles')
-            } catch (error) {
-                console.warn('❌ Erreur sauvegarde panier:', error)
-            }
-        }
-    }
-
-    // Charger les données au démarrage
-    if (process.client) {
-        loadFromStorage()
-    }
-
-    // Computed properties avec dépendance au cartVersion pour forcer les recalculs
-    const total = computed(() => {
-        cartVersion.value // Dépendance explicite pour forcer la réactivité
-        return items.value.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
-    })
-
+    // ✅ Getters calculés - CORRECTION DES BUGS
     const itemCount = computed(() => {
-        cartVersion.value // Dépendance explicite
-        return items.value.reduce((count, item) => count + item.quantity, 0)
+        // ✅ Calcul sécurisé du nombre d'articles
+        if (!Array.isArray(items.value)) return 0
+
+        return items.value.reduce((total, item) => {
+            const quantity = typeof item.quantity === 'number' ? item.quantity : 0
+            return total + quantity
+        }, 0)
     })
 
-    const getTotalWithShipping = computed(() => {
-        const subtotal = total.value
-        const shipping = subtotal >= 50 ? 0 : 4.99
-        return subtotal + shipping
+    const total = computed(() => {
+        // ✅ Calcul sécurisé du total
+        if (!Array.isArray(items.value)) return 0
+
+        return items.value.reduce((total, item) => {
+            const price = typeof item.product?.price === 'number' ? item.product.price : 0
+            const quantity = typeof item.quantity === 'number' ? item.quantity : 0
+            return total + (price * quantity)
+        }, 0)
     })
 
     const isFreeShipping = computed(() => {
-        return total.value >= 50
+        return total.value >= 25000
     })
 
-    // Actions avec triggers de réactivité
-    const addToCart = (product: Product, size: string, color: string, quantity: number = 1) => {
-        const { notifySuccess } = useNotificationStore()
+    const getTotalWithShipping = computed(() => {
+        const shippingCost = isFreeShipping.value ? 0 : 2500
+        return total.value + shippingCost
+    })
 
-        const existingItem = items.value.find(
-            item => item.product.id === product.id && item.size === size && item.color === color
-        )
+    // ✅ Fonction de sauvegarde dans localStorage
+    const _saveToStorage = () => {
+        if (process.client) {
+            try {
+                const dataToSave = items.value.map(item => ({
+                    ...item,
+                    // ✅ S'assurer que les valeurs sont correctes
+                    quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+                    size: item.size || 'M',
+                    color: item.color || 'Default'
+                }))
 
-        if (existingItem) {
-            existingItem.quantity += quantity
-            notifySuccess(
-                'Panier mis à jour',
-                `Quantité de "${product.name}" mise à jour (${existingItem.quantity})`,
-                3000
-            )
-        } else {
-            items.value.push({
-                product,
-                size,
-                color,
-                quantity
-            })
-            notifySuccess(
-                'Article ajouté',
-                `"${product.name}" a été ajouté à votre panier`,
-                3000
-            )
-        }
-
-        // Sauvegarder et déclencher la réactivité
-        saveToStorage()
-
-        // Forcer la mise à jour de l'interface
-        nextTick(() => {
-            cartVersion.value++
-        })
-    }
-
-    const removeFromCart = (productId: number, size: string, color: string) => {
-        const { notifyInfo } = useNotificationStore()
-
-        const index = items.value.findIndex(
-            item => item.product.id === productId && item.size === size && item.color === color
-        )
-
-        if (index > -1) {
-            const itemToRemove = items.value[index]
-            if (itemToRemove) {
-                const productName = itemToRemove.product.name
-
-                // Utiliser splice pour maintenir la réactivité
-                items.value.splice(index, 1)
-
-                notifyInfo(
-                    'Article supprimé',
-                    `"${productName}" a été retiré de votre panier`,
-                    3000
-                )
-
-                // Sauvegarder et déclencher la réactivité
-                saveToStorage()
-
-                // Forcer la mise à jour
-                nextTick(() => {
-                    cartVersion.value++
-                })
+                localStorage.setItem('cart-items', JSON.stringify(dataToSave))
+                console.log('💾 Panier sauvegardé:', dataToSave.length, 'articles, itemCount:', itemCount.value)
+            } catch (error) {
+                console.error('❌ Erreur sauvegarde panier:', error)
             }
         }
     }
 
-    const updateQuantity = (productId: number, size: string, color: string, quantity: number) => {
-        const item = items.value.find(
-            item => item.product.id === productId && item.size === size && item.color === color
-        )
+    // ✅ Fonction de chargement depuis localStorage
+    const _loadFromStorage = () => {
+        if (process.client && !isLoaded.value) {
+            try {
+                const saved = localStorage.getItem('cart-items')
+                if (saved) {
+                    const parsedItems = JSON.parse(saved)
+                    if (Array.isArray(parsedItems)) {
+                        // ✅ Nettoyer et valider les données chargées
+                        items.value = parsedItems.map(item => ({
+                            product: item.product,
+                            quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
+                            size: typeof item.size === 'string' ? item.size : 'M',
+                            color: typeof item.color === 'string' ? item.color : 'Default'
+                        })).filter(item =>
+                            // ✅ Filtrer les items invalides
+                            item.product &&
+                            typeof item.product.id === 'number' &&
+                            typeof item.product.price === 'number'
+                        )
 
-        if (item) {
-            if (quantity <= 0) {
-                removeFromCart(productId, size, color)
-            } else {
-                const oldQuantity = item.quantity
-                item.quantity = quantity
-
-                if (process.client) {
-                    const { notifySuccess } = useNotificationStore()
-                    notifySuccess(
-                        'Quantité mise à jour',
-                        `Quantité changée de ${oldQuantity} à ${quantity}`,
-                        2000
-                    )
+                        console.log('📂 Panier chargé:', items.value.length, 'articles, itemCount calculé:', itemCount.value)
+                    }
                 }
-
-                // Sauvegarder et déclencher la réactivité
-                saveToStorage()
-
-                // Forcer la mise à jour
-                nextTick(() => {
-                    cartVersion.value++
-                })
+            } catch (error) {
+                console.error('❌ Erreur chargement panier:', error)
+                items.value = []
             }
+            isLoaded.value = true
+        }
+    }
+
+    // ✅ Actions
+    const addToCart = (product: Product, quantity: number = 1, size: string = 'M', color: string = 'Default') => {
+        // ✅ Validation des paramètres
+        if (!product || typeof product.id !== 'number' || typeof product.price !== 'number') {
+            console.error('❌ Produit invalide:', product)
+            return false
+        }
+
+        const validQuantity = typeof quantity === 'number' && quantity > 0 ? quantity : 1
+        const validSize = typeof size === 'string' && size.trim() ? size : 'M'
+        const validColor = typeof color === 'string' && color.trim() ? color : 'Default'
+
+        try {
+            const notificationStore = useNotificationStore()
+
+            // Chercher si l'article existe déjà
+            const existingItem = items.value.find(
+                item => item.product.id === product.id &&
+                    item.size === validSize &&
+                    item.color === validColor
+            )
+
+            if (existingItem) {
+                existingItem.quantity += validQuantity
+                console.log('➕ Quantité mise à jour:', existingItem.quantity, 'pour', product.name)
+            } else {
+                const newItem: CartItem = {
+                    product: { ...product },
+                    quantity: validQuantity,
+                    size: validSize,
+                    color: validColor
+                }
+                items.value.push(newItem)
+                console.log('🆕 Nouvel article ajouté:', newItem, 'ItemCount sera:', itemCount.value + validQuantity)
+            }
+
+            _saveToStorage()
+
+            notificationStore.notifySuccess(
+                'Ajouté au panier !',
+                `${product.name} a été ajouté à votre panier`
+            )
+
+            console.log('✅ Article ajouté avec succès. ItemCount actuel:', itemCount.value)
+            return true
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'ajout au panier:', error)
+            return false
+        }
+    }
+
+    const removeFromCart = (productId: number, size: string, color: string): boolean => {
+        try {
+            const notificationStore = useNotificationStore()
+
+            const itemIndex = items.value.findIndex(
+                item => item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
+            )
+
+            if (itemIndex === -1) {
+                console.warn('⚠️ Article non trouvé pour suppression')
+                return false
+            }
+
+            const removedItem = items.value.splice(itemIndex, 1)[0]
+            _saveToStorage()
+
+            if (removedItem) {
+                notificationStore.notifySuccess(
+                    'Produit supprimé',
+                    `${removedItem.product.name} retiré du panier`
+                )
+            }
+
+            console.log('🗑️ Article supprimé:', removedItem?.product.name, 'ItemCount:', itemCount.value)
+            return true
+        } catch (error) {
+            console.error('❌ Erreur lors de la suppression:', error)
+            return false
+        }
+    }
+
+    const updateQuantity = (productId: number, size: string, color: string, newQuantity: number): boolean => {
+        if (typeof newQuantity !== 'number' || newQuantity < 0) {
+            console.warn('⚠️ Quantité invalide:', newQuantity)
+            return false
+        }
+
+        if (newQuantity === 0) {
+            return removeFromCart(productId, size, color)
+        }
+
+        try {
+            const item = items.value.find(
+                item => item.product.id === productId &&
+                    item.size === size &&
+                    item.color === color
+            )
+
+            if (!item) {
+                console.warn('⚠️ Article non trouvé pour mise à jour quantité')
+                return false
+            }
+
+            const oldQuantity = item.quantity
+            item.quantity = newQuantity
+            _saveToStorage()
+
+            console.log('🔢 Quantité mise à jour:', oldQuantity, '->', newQuantity, 'ItemCount:', itemCount.value)
+            return true
+        } catch (error) {
+            console.error('❌ Erreur lors de la mise à jour:', error)
+            return false
         }
     }
 
     const clearCart = () => {
-        const { notifyInfo } = useNotificationStore()
-        const previousItemCount = items.value.length
-
-        items.value.length = 0 // Vider le tableau en gardant la réactivité
-        saveToStorage()
-
-        if (previousItemCount > 0) {
-            notifyInfo(
-                'Panier vidé',
-                'Tous les articles ont été supprimés de votre panier',
-                3000
-            )
-        }
-
-        // Forcer la mise à jour
-        nextTick(() => {
-            cartVersion.value++
-        })
+        const itemCount = items.value.length
+        items.value = []
+        _saveToStorage()
+        console.log('🗑️ Panier vidé:', itemCount, 'articles supprimés')
     }
 
-    const reloadFromStorage = () => {
-        loadFromStorage()
+    const getItemInCart = (productId: number, size: string, color: string): CartItem | undefined => {
+        return items.value.find(
+            item => item.product.id === productId &&
+                item.size === size &&
+                item.color === color
+        )
+    }
+
+    const isInCart = (productId: number, size?: string, color?: string): boolean => {
+        return items.value.some(
+            item => item.product.id === productId &&
+                (!size || item.size === size) &&
+                (!color || item.color === color)
+        )
+    }
+
+    // ✅ Initialisation automatique côté client
+    if (process.client) {
+        _loadFromStorage()
     }
 
     return {
+        // État
         items: readonly(items),
-        total,
         itemCount,
-        getTotalWithShipping,
+        total,
         isFreeShipping,
+        getTotalWithShipping,
+        isLoaded: readonly(isLoaded),
+
+        // Actions
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
-        reloadFromStorage,
-        cartVersion: readonly(cartVersion) // Exposer pour debug si nécessaire
+        getItemInCart,
+        isInCart,
+
+        // Méthodes internes (exposées pour debug)
+        _loadFromStorage,
+        _saveToStorage
     }
 })

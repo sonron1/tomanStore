@@ -1,3 +1,5 @@
+import {useNotificationStore} from "~/stores/notifications";
+
 export default defineNuxtRouteMiddleware((to, from) => {
     // Vérifier si l'utilisateur vient bien de la page de checkout
     const isFromCheckout = from.path === '/checkout'

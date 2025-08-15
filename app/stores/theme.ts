@@ -10,7 +10,8 @@ export const useThemeStore = defineStore('theme', () => {
 
     // Fonction pour appliquer le thème
     const applyTheme = (theme: Theme) => {
-        if (!process.client) return
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (!import.meta.client) return
 
         const shouldBeDark = theme === 'dark'
         isDark.value = shouldBeDark
@@ -52,7 +53,8 @@ export const useThemeStore = defineStore('theme', () => {
 
     // Fonction pour charger le thème depuis le localStorage
     const loadTheme = () => {
-        if (!process.client) return
+        // ✅ Utilisation d'import.meta.client au lieu de process.client
+        if (!import.meta.client) return
 
         try {
             const stored = localStorage.getItem(STORAGE_KEY) as Theme
@@ -69,10 +71,8 @@ export const useThemeStore = defineStore('theme', () => {
         }
     }
 
-    // Initialisation
-    onMounted(() => {
-        loadTheme()
-    })
+    // ✅ Suppression de onMounted - l'initialisation se fait via le plugin
+    // Le plugin theme-init.client.ts se charge d'appeler loadTheme()
 
     return {
         currentTheme: readonly(currentTheme),

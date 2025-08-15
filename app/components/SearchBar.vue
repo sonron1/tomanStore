@@ -1,4 +1,3 @@
-
 <template>
   <div class="relative max-w-lg w-full">
     <div class="relative">
@@ -71,7 +70,8 @@
           >
           <div class="flex-1">
             <h4 class="text-sm font-medium text-gray-900">{{ suggestion.name }}</h4>
-            <p class="text-xs text-gray-500">{{ suggestion.category }} - {{ formatPrice(suggestion.price) }}€</p>
+            <!-- ✅ CORRECTION: Remplacer € par FCFA -->
+            <p class="text-xs text-gray-500">{{ suggestion.category }} - {{ formatPrice(suggestion.price) }} FCFA</p>
           </div>
         </div>
       </div>
@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import type { Product } from '~/types/product'
+import { useProductsStore } from '~/stores/products'
 
 const router = useRouter()
 const { searchProducts } = useProductsStore()
@@ -143,7 +144,7 @@ const clearSearch = () => {
 
 // Formater le prix
 const formatPrice = (price: number): string => {
-  return price.toFixed(2)
+  return price.toLocaleString('fr-FR')
 }
 
 // Recherche en appuyant sur Entrée

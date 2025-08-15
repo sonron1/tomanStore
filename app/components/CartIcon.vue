@@ -37,18 +37,36 @@
 </template>
 
 <script setup lang="ts">
+// ✅ Imports explicites - ne pas compter sur auto-import pour debug
+import { computed, ref, watch, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useCartStore } from "~/stores/cart"
+
+// ✅ Initialisation sécurisée du store
 const cartStore = useCartStore()
+
+// ✅ Vérifier que le store est disponible
+if (!cartStore) {
+  console.error('❌ CartStore non disponible dans CartIcon')
+}
+
 const { itemCount } = storeToRefs(cartStore)
 
 // Variable réactive pour détecter les changements
 const displayItemCount = ref(0)
 const itemCountChanged = ref(false)
 
-// Watcher pour détecter les changements et animer
+// ✅ Watcher robuste pour détecter les changements et animer
 watch(itemCount, (newCount, oldCount) => {
-  displayItemCount.value = newCount
+  console.log('🔄 CartIcon - Changement itemCount:', oldCount, '->', newCount)
 
-  if (newCount !== oldCount && process.client) {
+  if (typeof newCount === 'number') {
+    displayItemCount.value = newCount
+  } else {
+    displayItemCount.value = 0
+  }
+
+  if (newCount !== oldCount && process.client && typeof newCount === 'number') {
     itemCountChanged.value = true
     // Retirer l'animation après un délai
     setTimeout(() => {
@@ -57,8 +75,14 @@ watch(itemCount, (newCount, oldCount) => {
   }
 }, { immediate: true })
 
-// Initialiser la valeur au montage
+// ✅ Initialiser la valeur au montage avec vérification
 onMounted(() => {
-  displayItemCount.value = itemCount.value
+  if (typeof itemCount.value === 'number') {
+    displayItemCount.value = itemCount.value
+  } else {
+    displayItemCount.value = 0
+  }
+
+  console.log('🔄 CartIcon mounted - itemCount:', displayItemCount.value)
 })
 </script>

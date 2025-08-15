@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { CheckoutFormData, ShippingOption, PaymentMethod, OrderInfo } from '~/types/checkout'
+import {useCartStore} from "~/stores/cart";
 
 export const useCheckoutStore = defineStore('checkout', () => {
     // État du formulaire

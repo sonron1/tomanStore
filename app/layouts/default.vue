@@ -79,5 +79,7 @@
 </template>
 
 <script setup lang="ts">
+import {useThemeStore} from "~/stores/theme";
+
 const { currentTheme, isDark } = useThemeStore()
 </script>

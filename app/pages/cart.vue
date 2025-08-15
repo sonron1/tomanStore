@@ -46,7 +46,7 @@
                 <p class="text-sm text-gray-600 mb-2">
                   Taille: {{ item.size }} | Couleur: {{ item.color }}
                 </p>
-                <p class="text-lg font-semibold text-primary-600">{{ formatPrice(item.product.price) }}€</p>
+                <p class="text-lg font-semibold text-primary-600">{{ formatPrice(item.product.price) }} FCFA</p>
               </div>
 
               <!-- Contrôles de quantité -->
@@ -90,22 +90,22 @@
           <div class="space-y-3 mb-6">
             <div class="flex justify-between">
               <span class="text-gray-600">Sous-total ({{ itemCount }} articles)</span>
-              <span class="font-semibold">{{ formatPrice(total) }}€</span>
+              <span class="font-semibold">{{ formatPrice(total) }} FCFA</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600">Livraison</span>
               <span class="font-semibold">
                 <span v-if="isFreeShipping" class="text-green-600">Gratuite</span>
-                <span v-else>4.99€</span>
+                <span v-else>1 500 FCFA</span>
               </span>
             </div>
             <div v-if="!isFreeShipping" class="text-sm text-gray-500">
-              Plus que {{ formatPrice(50 - total) }}€ pour la livraison gratuite !
+              Plus que {{ formatPrice(25000 - total) }} FCFA pour la livraison gratuite !
             </div>
             <div class="border-t pt-3">
               <div class="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span class="text-primary-600">{{ formatPrice(getTotalWithShipping) }}€</span>
+                <span class="text-primary-600">{{ formatPrice(getTotalWithShipping) }} FCFA</span>
               </div>
             </div>
           </div>
@@ -129,7 +129,7 @@
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
               </svg>
-              Livraison gratuite dès 50€
+              Livraison gratuite dès 25 000 FCFA
             </div>
             <div class="flex items-center text-sm text-gray-600">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,40 +145,36 @@
 </template>
 
 <script setup lang="ts">
-// Utiliser storeToRefs pour maintenir la réactivité
+import { storeToRefs } from 'pinia'
+import { useCartStore } from "~/stores/cart"
+import { useNotificationStore } from "~/stores/notifications"
+import { useCurrency } from "~/composables/useCurrency"
+
 const cartStore = useCartStore()
 const { items, total, itemCount, getTotalWithShipping, isFreeShipping } = storeToRefs(cartStore)
 const { updateQuantity, removeFromCart } = cartStore
-
-const formatPrice = (price: number): string => {
-  return price.toFixed(2)
-}
+const { formatPrice } = useCurrency()
 
 const proceedToCheckout = async () => {
-  // Vérifier que le panier n'est pas vide
   if (items.value.length === 0) {
     const { notifyError } = useNotificationStore()
-    notifyError('Erreur', 'Votre panier est vide !', 3000)
+    notifyError('Erreur', 'Votre panier est vide !')
     return
   }
 
   try {
-    // Rediriger vers la page de checkout
     await navigateTo('/checkout')
   } catch (error) {
     console.error('Erreur lors de la redirection:', error)
     const { notifyError } = useNotificationStore()
-    notifyError('Erreur', 'Impossible d\'accéder à la page de paiement', 3000)
+    notifyError('Erreur', 'Impossible d\'accéder à la page de paiement')
   }
 }
 
-// Forcer la réactivité en surveillant les changements
 watchEffect(() => {
-  // Cette fonction execute à chaque changement du panier
-  console.log('🔄 Panier mis à jour:', items.value.length, 'articles')
+  console.log('🔄 Panier mis à jour:', items.value.length, 'articles', 'Total:', total.value)
 })
 
-// Meta tags
 useSeoMeta({
   title: 'Mon panier',
   description: 'Consultez et modifiez les articles de votre panier.'

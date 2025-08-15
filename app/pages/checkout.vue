@@ -1,6 +1,34 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Debug en développement -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+      <KKiaPayDebug v-if="isDev" />
+    </div>
+
+    <!-- État de chargement -->
+    <div v-if="!isHydrated || !cartStore?.isLoaded" class="flex justify-center items-center py-20">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <span class="ml-4 text-gray-600">Chargement...</span>
+    </div>
+
+    <!-- Panier vide -->
+    <div v-else-if="cartItems.length === 0" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-20">
+      <div class="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l-2.5 5m0 0h12.5M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6"></path>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Votre panier est vide</h1>
+      <p class="text-gray-600 dark:text-gray-400 mb-8">
+        Vous devez ajouter des articles à votre panier avant de pouvoir passer commande.
+      </p>
+      <NuxtLink to="/products" class="btn-primary">
+        Explorer nos produits
+      </NuxtLink>
+    </div>
+
+    <!-- Contenu principal -->
+    <div v-else class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Finaliser ma commande</h1>
         <p class="text-gray-600 dark:text-gray-400 mt-2">
@@ -8,367 +36,215 @@
         </p>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Formulaire de checkout -->
-        <div class="lg:col-span-2">
-          <form @submit.prevent="handleSubmit" class="space-y-8">
-            <!-- Informations personnelles -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                👤 Informations personnelles
-              </h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Formulaire -->
+        <form @submit.prevent="handleSubmit" class="space-y-6">
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Informations personnelles -->
+          <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              👤 Informations personnelles
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Prénom *
+                </label>
+                <input
+                    v-model="formData.firstName"
+                    type="text"
+                    required
+                    class="input-field"
+                    placeholder="Votre prénom"
+                    :disabled="isProcessing"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nom *
+                </label>
+                <input
+                    v-model="formData.lastName"
+                    type="text"
+                    required
+                    class="input-field"
+                    placeholder="Votre nom"
+                    :disabled="isProcessing"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email *
+                </label>
+                <input
+                    v-model="formData.email"
+                    type="email"
+                    required
+                    class="input-field"
+                    placeholder="votre@email.com"
+                    :disabled="isProcessing"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Téléphone *
+                </label>
+                <input
+                    v-model="formData.phone"
+                    type="tel"
+                    required
+                    class="input-field"
+                    placeholder="+229 XX XX XX XX"
+                    :disabled="isProcessing"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Adresse de livraison -->
+          <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              🏠 Adresse de livraison
+            </h2>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Adresse *
+                </label>
+                <input
+                    v-model="formData.address"
+                    type="text"
+                    required
+                    class="input-field"
+                    placeholder="Rue, quartier..."
+                    :disabled="isProcessing"
+                />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Prénom *
+                    Ville *
+                  </label>
+                  <select
+                      v-model="formData.city"
+                      required
+                      class="input-field"
+                      :disabled="isProcessing"
+                  >
+                    <option value="">Choisir une ville</option>
+                    <option value="Cotonou">Cotonou</option>
+                    <option value="Porto-Novo">Porto-Novo</option>
+                    <option value="Parakou">Parakou</option>
+                    <option value="Abomey-Calavi">Abomey-Calavi</option>
+                    <option value="Bohicon">Bohicon</option>
+                    <option value="Natitingou">Natitingou</option>
+                    <option value="Ouidah">Ouidah</option>
+                    <option value="Kandi">Kandi</option>
+                    <option value="Lokossa">Lokossa</option>
+                    <option value="Abomey">Abomey</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pays
                   </label>
                   <input
-                      v-model="formData.firstName"
+                      v-model="formData.country"
                       type="text"
-                      :class="[
-                      'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                      errors.firstName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    ]"
-                      placeholder="Votre prénom"
-                  >
-                  <p v-if="errors.firstName" class="text-red-500 text-xs mt-1">
-                    {{ errors.firstName }}
-                  </p>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nom *
-                  </label>
-                  <input
-                      v-model="formData.lastName"
-                      type="text"
-                      :class="[
-                      'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                      errors.lastName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    ]"
-                      placeholder="Votre nom"
-                  >
-                  <p v-if="errors.lastName" class="text-red-500 text-xs mt-1">
-                    {{ errors.lastName }}
-                  </p>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email *
-                  </label>
-                  <input
-                      v-model="formData.email"
-                      type="email"
-                      :class="[
-                      'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                      errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    ]"
-                      placeholder="votre@email.com"
-                  >
-                  <p v-if="errors.email" class="text-red-500 text-xs mt-1">
-                    {{ errors.email }}
-                  </p>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Téléphone *
-                  </label>
-                  <input
-                      v-model="formData.phone"
-                      type="tel"
-                      :class="[
-                      'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                      errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    ]"
-                      placeholder="06 12 34 56 78"
-                  >
-                  <p v-if="errors.phone" class="text-red-500 text-xs mt-1">
-                    {{ errors.phone }}
-                  </p>
+                      readonly
+                      class="input-field bg-gray-100 dark:bg-gray-700 text-gray-500"
+                  />
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Adresse de livraison -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                🏠 Adresse de livraison
-              </h2>
+          <!-- Mode de livraison -->
+          <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              🚚 Mode de livraison
+            </h2>
 
-              <div class="space-y-6">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Adresse *
-                  </label>
-                  <input
-                      v-model="formData.address"
-                      type="text"
-                      :class="[
-                      'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                      errors.address ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    ]"
-                      placeholder="123 rue de la Paix"
-                  >
-                  <p v-if="errors.address" class="text-red-500 text-xs mt-1">
-                    {{ errors.address }}
-                  </p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Ville *
-                    </label>
-                    <input
-                        v-model="formData.city"
-                        type="text"
-                        :class="[
-                        'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                        errors.city ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      ]"
-                        placeholder="Paris"
-                    >
-                    <p v-if="errors.city" class="text-red-500 text-xs mt-1">
-                      {{ errors.city }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Code postal *
-                    </label>
-                    <input
-                        v-model="formData.postalCode"
-                        type="text"
-                        :class="[
-                        'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                        errors.postalCode ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      ]"
-                        placeholder="75000"
-                    >
-                    <p v-if="errors.postalCode" class="text-red-500 text-xs mt-1">
-                      {{ errors.postalCode }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Pays
-                    </label>
-                    <select
-                        v-model="formData.country"
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="France">France</option>
-                      <option value="Belgique">Belgique</option>
-                      <option value="Suisse">Suisse</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Méthodes de livraison -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                🚚 Mode de livraison
-              </h2>
-
-              <div class="space-y-4">
-                <div
-                    v-for="option in shippingOptions"
-                    :key="option.id"
-                    class="relative"
-                >
-                  <label class="flex items-center justify-between p-4 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <div class="flex items-center">
-                      <input
-                          v-model="formData.shippingMethod"
-                          :value="option.id"
-                          type="radio"
-                          class="mr-3 text-blue-600 focus:ring-blue-500"
-                      >
-                      <div>
-                        <div class="font-medium text-gray-900 dark:text-white">
-                          {{ option.name }}
-                        </div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                          {{ option.description }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="text-right">
-                      <div class="font-medium text-gray-900 dark:text-white">
-                        {{ option.price === 0 ? 'Gratuit' : `${option.price}€` }}
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <!-- Méthodes de paiement -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                💳 Mode de paiement
-              </h2>
-
-              <div class="space-y-4 mb-6">
-                <div
-                    v-for="method in paymentMethods"
-                    :key="method.id"
-                    class="relative"
-                >
-                  <label class="flex items-center p-4 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <input
-                        v-model="formData.paymentMethod"
-                        :value="method.id"
-                        type="radio"
-                        class="mr-3 text-blue-600 focus:ring-blue-500"
-                    >
-                    <span class="text-2xl mr-3">{{ method.icon }}</span>
-                    <div>
-                      <div class="font-medium text-gray-900 dark:text-white">
-                        {{ method.name }}
-                      </div>
-                      <div class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ method.description }}
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <!-- Informations de carte (si paiement par carte) -->
-              <div v-if="formData.paymentMethod === 'card'" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Numéro de carte *
-                    </label>
-                    <input
-                        v-model="formData.cardNumber"
-                        type="text"
-                        :class="[
-                        'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                        errors.cardNumber ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      ]"
-                        placeholder="1234 5678 9012 3456"
-                    >
-                    <p v-if="errors.cardNumber" class="text-red-500 text-xs mt-1">
-                      {{ errors.cardNumber }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Date d'expiration *
-                    </label>
-                    <input
-                        v-model="formData.cardExpiry"
-                        type="text"
-                        :class="[
-                        'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                        errors.cardExpiry ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      ]"
-                        placeholder="MM/AA"
-                    >
-                    <p v-if="errors.cardExpiry" class="text-red-500 text-xs mt-1">
-                      {{ errors.cardExpiry }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      CVC *
-                    </label>
-                    <input
-                        v-model="formData.cardCVC"
-                        type="text"
-                        :class="[
-                        'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                        errors.cardCVC ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      ]"
-                        placeholder="123"
-                    >
-                    <p v-if="errors.cardCVC" class="text-red-500 text-xs mt-1">
-                      {{ errors.cardCVC }}
-                    </p>
-                  </div>
-
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Nom sur la carte *
-                    </label>
-                    <input
-                        v-model="formData.cardName"
-                        type="text"
-                        :class="[
-                        'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors',
-                        errors.cardName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      ]"
-                        placeholder="John Doe"
-                    >
-                    <p v-if="errors.cardName" class="text-red-500 text-xs mt-1">
-                      {{ errors.cardName }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Commentaires -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                💬 Commentaires (optionnel)
-              </h2>
-              <textarea
-                  v-model="formData.notes"
-                  rows="4"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ajouter un commentaire pour votre commande..."
-              ></textarea>
-            </div>
-
-            <!-- Bouton de soumission -->
-            <div class="flex justify-between items-center">
-              <NuxtLink
-                  to="/cart"
-                  class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            <div class="space-y-3">
+              <div
+                  v-for="option in shippingOptions"
+                  :key="option.id"
+                  class="relative"
               >
-                ← Retour au panier
-              </NuxtLink>
-
-              <button
-                  type="submit"
-                  :disabled="isSubmitting"
-                  :class="[
-                  'px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg transition-colors',
-                  isSubmitting
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-blue-700 focus:ring-2 focus:ring-blue-500'
-                ]"
-              >
-                <span v-if="isSubmitting" class="flex items-center">
-                  <svg class="animate-spin -ml-1 mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                  </svg>
-                  Traitement...
-                </span>
-                <span v-else>Finaliser ma commande</span>
-              </button>
+                <label class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-primary-300 cursor-pointer transition-colors">
+                  <input
+                      v-model="selectedShipping"
+                      :value="option.id"
+                      type="radio"
+                      name="shipping"
+                      class="sr-only"
+                      :disabled="isProcessing"
+                  >
+                  <div class="flex items-center w-full">
+                    <div class="w-4 h-4 border-2 border-primary-300 rounded-full mr-3 relative flex-shrink-0">
+                      <div
+                          v-if="selectedShipping === option.id"
+                          class="w-2 h-2 bg-primary-600 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                      ></div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ option.name }}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">
+                          {{ option.price === 0 ? 'Gratuit' : `${formatPrice(option.price)} FCFA` }}
+                        </span>
+                      </div>
+                      <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ option.description }}</p>
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
 
-        <!-- Récapitulatif de commande -->
-        <div class="lg:col-span-1">
-          <CheckoutSummary />
+          <!-- Bouton de paiement -->
+          <div class="card">
+            <button
+                type="submit"
+                :disabled="!isFormValid || isProcessing"
+                class="w-full btn-payment"
+            >
+              <span v-if="isProcessing" class="flex items-center justify-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Traitement en cours...
+              </span>
+              <span v-else class="flex items-center justify-center">
+                💳 Payer {{ formatPrice(finalTotal) }} FCFA avec KKiaPay
+              </span>
+            </button>
+
+            <div class="mt-4 text-center">
+              <p class="text-sm text-gray-600 dark:text-gray-400">
+                🔒 Paiement sécurisé avec KKiaPay • Mode {{ isDev ? 'Test' : 'Production' }}
+              </p>
+            </div>
+
+            <!-- Debug -->
+            <div v-if="isDev" class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <p class="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-2">🔧 Debug:</p>
+              <pre class="text-xs text-yellow-700 dark:text-yellow-300 overflow-auto max-h-40">{{ debugFormData }}</pre>
+            </div>
+          </div>
+        </form>
+
+        <!-- Récapitulatif -->
+        <div>
+          <CheckoutSummary :shipping-cost="shippingCost" />
         </div>
       </div>
     </div>
@@ -376,35 +252,243 @@
 </template>
 
 <script setup lang="ts">
-const { formData, errors, isSubmitting, shippingOptions, paymentMethods, submitOrder } = useCheckoutStore()
-const { notifySuccess, notifyError } = useNotificationStore()
+// ✅ Imports corrigés avec storeToRefs
+import { storeToRefs } from 'pinia'
+import { useCartStore } from '~/stores/cart'
 
-// Gestion de la soumission du formulaire
-const handleSubmit = async () => {
-  const { success, orderInfo } = await submitOrder()
+definePageMeta({
+  title: 'Finaliser ma commande - TomanStore',
+  description: 'Compléter votre commande et procéder au paiement sécurisé'
+})
 
-  if (success && orderInfo) {
-    notifySuccess(
-        'Commande confirmée !',
-        'Votre commande a été enregistrée avec succès.'
-    )
+// ✅ Composables et stores avec gestion d'erreur
+const cartStore = useCartStore()
+const { formatPrice } = useCurrency()
+const config = useRuntimeConfig()
 
-    // Rediriger vers la page de confirmation
-    await navigateTo({
-      path: '/order-confirmation',
-      query: { orderNumber: orderInfo.orderNumber }
-    })
-  } else {
-    notifyError(
-        'Erreur lors de la commande',
-        'Une erreur est survenue. Veuillez vérifier vos informations.'
-    )
+// ✅ Variables réactives extraites avec storeToRefs pour maintenir la réactivité
+const { items: cartItems, total: cartTotal, isLoaded: cartIsLoaded } = storeToRefs(cartStore)
+
+// ✅ Obtenir processPayment et isProcessing de manière sécurisée
+let processPayment: Function
+let isProcessing: Ref<boolean>
+
+try {
+  const paymentComposable = usePayment()
+  processPayment = paymentComposable.processPayment
+  isProcessing = paymentComposable.isProcessing
+} catch (error) {
+  console.error('❌ Erreur initialisation usePayment:', error)
+  // Fallback
+  isProcessing = ref(false)
+  processPayment = async () => {
+    console.error('usePayment non disponible')
   }
 }
 
-// Meta tags pour SEO
-useSeoMeta({
-  title: 'Checkout - Finaliser ma commande',
-  description: 'Finalisez votre commande sur TomanStore avec un processus de checkout sécurisé et simple.'
+// ✅ États locaux
+const isHydrated = ref(false)
+const isDev = computed(() => config.public.isKkiapayDev || false)
+
+// ✅ Formulaire
+const formData = reactive({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  address: '',
+  city: '',
+  country: 'Bénin'
+})
+
+const selectedShipping = ref('standard')
+
+const shippingOptions = [
+  {
+    id: 'standard',
+    name: 'Livraison Standard',
+    description: 'Disponible Cotonou - Calavi et environ (3-5 jours ouvrés)',
+    price: 1500
+  },
+  {
+    id: 'express',
+    name: 'Livraison Express',
+    description: 'Disponible Cotonou - Calavi et environ (1-2 jours ouvrés)',
+    price: 3000
+  },
+  {
+    id: 'free',
+    name: 'Livraison Gratuite',
+    description: '5-7 jours ouvrés (commande > 25 000 FCFA)',
+    price: 0
+  }
+]
+
+// ✅ Computed properties sécurisées
+const subtotal = computed(() => cartTotal.value || 0)
+
+const shippingCost = computed(() => {
+  const option = shippingOptions.find(o => o.id === selectedShipping.value)
+  return option ? option.price : 0
+})
+
+const finalTotal = computed(() => subtotal.value + shippingCost.value)
+
+const isFormValid = computed(() => {
+  const requiredFields = [
+    formData.firstName.trim(),
+    formData.lastName.trim(),
+    formData.email.trim(),
+    formData.phone.trim(),
+    formData.address.trim(),
+    formData.city.trim()
+  ]
+
+  return requiredFields.every(field => !!field) &&
+      selectedShipping.value &&
+      cartItems.value.length > 0
+})
+
+const debugFormData = computed(() => ({
+  storeLoaded: !!cartStore,
+  cartLoaded: cartIsLoaded.value,
+  formValid: isFormValid.value,
+  cartItemsCount: cartItems.value.length,
+  subtotal: subtotal.value,
+  shippingCost: shippingCost.value,
+  finalTotal: finalTotal.value,
+  formData: { ...formData },
+  selectedShipping: selectedShipping.value
+}))
+
+// ✅ Handler amélioré
+const handleSubmit = async () => {
+  console.log('🚀 handleSubmit déclenchée')
+
+  // Vérifications de sécurité
+  if (!cartStore) {
+    console.error('❌ Cart store non disponible!')
+    return
+  }
+
+  if (!isFormValid.value) {
+    console.warn('⚠️ Formulaire invalide')
+    return
+  }
+
+  if (isProcessing.value) {
+    console.warn('⚠️ Paiement déjà en cours')
+    return
+  }
+
+  try {
+    const checkoutData = {
+      customer: {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim()
+      },
+      shipping: {
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        phone: formData.phone.trim()
+      },
+      totals: {
+        subtotal: subtotal.value,
+        shipping: shippingCost.value,
+        total: finalTotal.value
+      }
+    }
+
+    console.log('🚀 Lancement paiement:', checkoutData)
+
+    if (processPayment) {
+      await processPayment(checkoutData)
+    } else {
+      console.error('❌ processPayment non disponible')
+    }
+
+  } catch (error) {
+    console.error('❌ Erreur soumission:', error)
+  }
+}
+
+// ✅ Lifecycle amélioré avec gestion d'erreur
+onMounted(async () => {
+  console.log('🏗️ Checkout mounted')
+
+  // Attendre que Pinia soit complètement initialisé
+  await nextTick()
+
+  try {
+    // Forcer le chargement du panier si nécessaire
+    if (cartStore && !cartIsLoaded.value) {
+      cartStore._loadFromStorage()
+    }
+
+    // Attendre encore un tick pour s'assurer que tout est chargé
+    await nextTick()
+
+    isHydrated.value = true
+
+    // Auto-sélection livraison gratuite si éligible
+    if (subtotal.value >= 25000) {
+      selectedShipping.value = 'free'
+    }
+
+    console.log('✅ Checkout initialisé:', {
+      cartLoaded: cartIsLoaded.value,
+      itemsCount: cartItems.value.length,
+      subtotal: subtotal.value
+    })
+
+  } catch (error) {
+    console.error('❌ Erreur lors du montage checkout:', error)
+    isHydrated.value = true // Permettre l'affichage malgré l'erreur
+  }
+})
+
+// ✅ Surveillance des changements de panier
+watch(cartItems, (newItems) => {
+  console.log('🔄 Panier mis à jour:', newItems.length, 'articles')
+}, { deep: true })
+
+// ✅ Surveillance du total pour ajustement automatique de la livraison
+watch(subtotal, (newSubtotal) => {
+  if (newSubtotal >= 25000 && selectedShipping.value !== 'free') {
+    selectedShipping.value = 'free'
+    console.log('🎉 Livraison gratuite activée automatiquement')
+  }
 })
 </script>
+
+<style scoped>
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6;
+}
+
+.input-field {
+  @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors;
+}
+
+.btn-payment {
+  @apply px-6 py-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-lg;
+}
+
+.border-primary-300 {
+  @apply border-blue-300;
+}
+
+.border-primary-600 {
+  @apply border-blue-600;
+}
+
+.bg-primary-600 {
+  @apply bg-blue-600;
+}
+</style>
